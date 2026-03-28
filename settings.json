@@ -1,0 +1,23 @@
+{
+    "emailEnabled": false,
+    "smtpServer": "smtp.gmail.com",
+    "smtpPort": "587",
+    "senderEmail": "",
+    "senderPassword": "",
+    "receiverEmail": "",
+    "telegramEnabled": false,
+    "telegramBotToken": "",
+    "telegramChatId": "",
+    "roiPoints": [],
+    "showHeatmap": true,
+    "cameraSources": [
+        {
+            "name": "Test Cam 1",
+            "source": "rtsp://admin:99infomart2035@192.168.100.3:554/ch14.264?ptype=tcp"
+        },
+        {
+            "name": "Test Cam 2",
+            "source": "rtsp://admin:99infomart2035@192.168.100.3:554/ch10.264?ptype=tcp"
+        }
+    ]
+}

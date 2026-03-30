@@ -212,3 +212,6 @@ cython_debug/
 *.vob
 *.ogv
 *.asf
+
+# Node.js dependencies
+node_modules/

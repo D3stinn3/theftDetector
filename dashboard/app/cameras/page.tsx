@@ -115,34 +115,46 @@ export default function CamerasPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <header>
-        <h1 className="text-2xl font-semibold text-white">Cameras</h1>
-        <p className="mt-1 text-sm text-zinc-400">
-          USB index (e.g. <code className="text-zinc-300">0</code>) or RTSP URL.
-          Select which cameras should auto-load on backend startup.
+        <h1 className="font-headline text-2xl font-semibold tracking-tight text-foreground">
+          Cameras
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          USB index (e.g.{" "}
+          <code className="rounded-fidelity bg-neutral/10 px-1 py-0.5 text-foreground">
+            0
+          </code>
+          ) or RTSP URL. Select which cameras should auto-load on backend startup.
         </p>
       </header>
 
       {msg && (
-        <p className="rounded-lg border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
+        <p className="rounded-fidelity border border-primary/30 bg-primary/10 px-3 py-2 text-sm text-foreground">
           {msg}
         </p>
       )}
 
       {loading ? (
-        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+        <Loader2 className="h-6 w-6 animate-spin text-muted" />
       ) : (
         <>
-          <fieldset className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-            <legend className="px-1 text-sm font-medium text-zinc-300">
+          <fieldset className="space-y-3 rounded-fidelity border border-border bg-surface/70 p-4">
+            <legend className="px-1 text-sm font-medium text-foreground">
               Startup cameras
             </legend>
-            <p className="text-xs text-zinc-500">
-              Saved in <code className="text-zinc-300">settings.json</code> as{" "}
-              <code className="text-zinc-300">cameraSources</code>.
+            <p className="text-xs text-muted">
+              Saved in{" "}
+              <code className="rounded-fidelity bg-neutral/10 px-1 py-0.5 text-foreground">
+                settings.json
+              </code>{" "}
+              as{" "}
+              <code className="rounded-fidelity bg-neutral/10 px-1 py-0.5 text-foreground">
+                cameraSources
+              </code>
+              .
             </p>
 
             {startup.length === 0 ? (
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-muted">
                 No startup cameras saved yet. Select cameras below and click
                 “Save as startup cameras”.
               </p>
@@ -151,10 +163,10 @@ export default function CamerasPage() {
                 {startup.map((c, i) => (
                   <li
                     key={`${c.source}-${i}`}
-                    className="rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2"
+                    className="rounded-fidelity border border-border bg-background px-3 py-2"
                   >
-                    <p className="text-sm font-medium text-zinc-200">{c.name}</p>
-                    <p className="mt-1 break-all font-mono text-xs text-zinc-500">
+                    <p className="text-sm font-medium text-foreground">{c.name}</p>
+                    <p className="mt-1 break-all font-mono text-xs text-muted">
                       {c.source}
                     </p>
                   </li>
@@ -162,12 +174,12 @@ export default function CamerasPage() {
               </ul>
             )}
 
-            <label className="flex items-center gap-3 text-sm text-zinc-200">
+            <label className="flex items-center gap-3 text-sm text-foreground">
               <input
                 type="checkbox"
                 checked={reloadNow}
                 onChange={(e) => setReloadNow(e.target.checked)}
-                className="h-4 w-4 rounded border-zinc-600"
+                className="h-4 w-4 rounded border-border"
               />
               Reload cameras immediately after saving
             </label>
@@ -176,7 +188,7 @@ export default function CamerasPage() {
               type="button"
               onClick={saveStartupFromSelection}
               disabled={savingStartup || cams.length === 0}
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-black hover:bg-amber-500 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-fidelity bg-primary px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-50"
             >
               {savingStartup ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -191,23 +203,23 @@ export default function CamerasPage() {
             {cams.map((c) => (
               <li
                 key={c.id}
-                className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3"
+                className="flex items-center justify-between gap-4 rounded-fidelity border border-border bg-surface/80 px-4 py-3"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <Video className="h-5 w-5 shrink-0 text-zinc-500" />
+                  <Video className="h-5 w-5 shrink-0 text-muted" />
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="font-medium text-zinc-100">{c.name}</p>
-                      <span className="text-xs text-zinc-600">{c.status}</span>
+                      <p className="font-medium text-foreground">{c.name}</p>
+                      <span className="text-xs text-muted">{c.status}</span>
                     </div>
-                    <p className="mt-1 truncate font-mono text-xs text-zinc-500">
+                    <p className="mt-1 truncate font-mono text-xs text-muted">
                       {c.source}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-2 text-xs text-zinc-300">
+                  <label className="flex items-center gap-2 text-xs text-foreground">
                     <input
                       type="checkbox"
                       checked={!!startupSelected[c.id]}
@@ -217,7 +229,7 @@ export default function CamerasPage() {
                           [c.id]: e.target.checked,
                         }))
                       }
-                      className="h-4 w-4 rounded border-zinc-600"
+                      className="h-4 w-4 rounded border-border"
                     />
                     Startup
                   </label>
@@ -225,7 +237,7 @@ export default function CamerasPage() {
                   <button
                     type="button"
                     onClick={() => remove(c.id)}
-                    className="rounded-lg p-2 text-zinc-400 hover:bg-red-950/50 hover:text-red-400"
+                    className="rounded-fidelity p-2 text-muted hover:bg-red-950/50 hover:text-red-400"
                     aria-label="Remove camera"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -237,18 +249,18 @@ export default function CamerasPage() {
         </>
       )}
 
-      <fieldset className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-        <legend className="px-1 text-sm font-medium text-zinc-300">
+      <fieldset className="space-y-3 rounded-fidelity border border-border bg-surface/70 p-4">
+        <legend className="px-1 text-sm font-medium text-foreground">
           Add camera
         </legend>
         <input
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+          className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
           placeholder="Display name"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <input
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm font-mono"
+          className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm font-mono text-foreground"
           placeholder="Source (0, 1, or rtsp://...)"
           value={source}
           onChange={(e) => setSource(e.target.value)}
@@ -257,7 +269,7 @@ export default function CamerasPage() {
           type="button"
           onClick={addCamera}
           disabled={adding}
-          className="inline-flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-fidelity border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground hover:bg-neutral/15 disabled:opacity-50"
         >
           {adding ? (
             <Loader2 className="h-4 w-4 animate-spin" />

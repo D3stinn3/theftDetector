@@ -1,17 +1,24 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Epilogue, Public_Sans, Space_Grotesk } from "next/font/google";
 import AppShell from "@/components/AppShell";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+const fontBody = Epilogue({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
 });
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+
+const fontHeadline = Public_Sans({
+  subsets: ["latin"],
+  variable: "--font-headline",
+  display: "swap",
+});
+
+const fontLabel = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-label",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -27,7 +34,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
+        suppressHydrationWarning
+        className={`${fontBody.variable} ${fontHeadline.variable} ${fontLabel.variable} font-body antialiased`}
       >
         <AppShell>{children}</AppShell>
       </body>

@@ -54,31 +54,31 @@ export default function LiveFeeds() {
     <div className="space-y-4">
       {alert && (
         <div
-          className="flex items-start gap-3 rounded-xl border border-red-500/40 bg-red-950/50 px-4 py-3 text-red-100 shadow-lg shadow-red-900/20"
+          className="flex items-start gap-3 rounded-fidelity border border-tertiary/40 bg-tertiary/10 px-4 py-3 text-foreground shadow-lg shadow-tertiary/10"
           role="alert"
         >
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-red-400" />
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-tertiary" />
           <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-red-300">
+            <p className="font-label text-sm font-semibold uppercase tracking-wide text-tertiary">
               Alert
             </p>
             <p className="mt-1 text-sm">{alert.message}</p>
-            <p className="mt-1 text-xs text-red-200/70">{alert.timestamp}</p>
+            <p className="mt-1 text-xs text-muted">{alert.timestamp}</p>
           </div>
         </div>
       )}
 
-      <div className="flex items-center gap-2 text-xs text-zinc-500">
+      <div className="flex items-center gap-2 text-xs text-muted">
         <span
           className={`inline-block h-2 w-2 rounded-full ${
-            connected ? "bg-emerald-500" : "bg-zinc-600"
+            connected ? "bg-primary" : "bg-neutral"
           }`}
         />
         {connected ? "Stream connected" : "Reconnecting…"}
       </div>
 
       {feeds.length === 0 ? (
-        <div className="flex aspect-video max-w-4xl items-center justify-center rounded-xl border border-dashed border-zinc-700 bg-zinc-900/50 text-zinc-500">
+        <div className="flex aspect-video max-w-4xl items-center justify-center rounded-fidelity border border-dashed border-border bg-surface/50 text-muted">
           Waiting for video… (ensure backend is running and a camera is open)
         </div>
       ) : (
@@ -94,13 +94,13 @@ export default function LiveFeeds() {
           {feeds.map((cam) => (
             <div
               key={cam.camera_id}
-              className="overflow-hidden rounded-xl border border-zinc-800 bg-black shadow-xl"
+              className="overflow-hidden rounded-fidelity border border-border bg-surface shadow-xl"
             >
-              <div className="flex items-center justify-between border-b border-zinc-800 bg-zinc-900 px-3 py-2">
-                <span className="text-sm font-medium text-zinc-200">
+              <div className="flex items-center justify-between border-b border-border bg-surface px-3 py-2">
+                <span className="text-sm font-medium text-foreground">
                   {cam.name}
                 </span>
-                <span className="font-mono text-[10px] text-zinc-500">
+                <span className="font-mono text-[10px] text-muted">
                   {cam.camera_id.slice(0, 8)}…
                 </span>
               </div>

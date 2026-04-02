@@ -76,21 +76,23 @@ export default function RoiPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold text-white">Region of interest</h1>
-        <p className="mt-1 text-sm text-zinc-400">
+        <h1 className="font-headline text-2xl font-semibold tracking-tight text-foreground">
+          Region of interest
+        </h1>
+        <p className="mt-1 text-sm text-muted">
           Click to add polygon vertices (mapped to {W}×{H}). Right-click the
           preview to clear. Save sends points to the API.
         </p>
       </header>
 
       {msg && (
-        <p className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-300">
+        <p className="rounded-fidelity border border-border bg-surface px-3 py-2 text-sm text-foreground">
           {msg}
         </p>
       )}
 
       {loading ? (
-        <div className="flex items-center gap-2 text-zinc-400">
+        <div className="flex items-center gap-2 text-muted">
           <Loader2 className="h-5 w-5 animate-spin" />
           Loading ROI…
         </div>
@@ -101,10 +103,10 @@ export default function RoiPage() {
             role="presentation"
             onClick={onClick}
             onContextMenu={onContextMenu}
-            className="relative cursor-crosshair overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900"
+            className="relative cursor-crosshair overflow-hidden rounded-fidelity border border-border bg-surface"
             style={{ aspectRatio: `${W} / ${H}` }}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-950" />
+            <div className="absolute inset-0 bg-gradient-to-br from-neutral/30 to-background" />
             <svg
               className="absolute inset-0 h-full w-full"
               viewBox={`0 0 ${W} ${H}`}
@@ -113,8 +115,8 @@ export default function RoiPage() {
               {points.length > 0 && (
                 <polygon
                   points={points.map((p) => `${p[0]},${p[1]}`).join(" ")}
-                  fill="rgba(245, 158, 11, 0.12)"
-                  stroke="#f59e0b"
+                  fill="rgba(0, 253, 189, 0.14)"
+                  stroke="#00fdbd"
                   strokeWidth="3"
                 />
               )}
@@ -124,13 +126,13 @@ export default function RoiPage() {
                   cx={p[0]}
                   cy={p[1]}
                   r="10"
-                  fill="#fbbf24"
-                  stroke="#18181b"
+                  fill="#ffe046"
+                  stroke="#0a0f0d"
                   strokeWidth="2"
                 />
               ))}
             </svg>
-            <p className="pointer-events-none absolute bottom-2 left-2 text-xs text-zinc-500">
+            <p className="pointer-events-none absolute bottom-2 left-2 text-xs text-muted">
               {points.length} points
             </p>
           </div>
@@ -139,7 +141,7 @@ export default function RoiPage() {
             <button
               type="button"
               onClick={() => setPoints([])}
-              className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-800"
+              className="inline-flex items-center gap-2 rounded-fidelity border border-border px-4 py-2 text-sm text-foreground hover:bg-neutral/15"
             >
               <Trash2 className="h-4 w-4" />
               Clear
@@ -148,7 +150,7 @@ export default function RoiPage() {
               type="button"
               onClick={save}
               disabled={saving || points.length < 3}
-              className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-black hover:bg-amber-500 disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-fidelity bg-primary px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-40"
             >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -19,29 +19,35 @@ export default function WeeklyChart({ data }: Props) {
   }));
 
   return (
-    <div className="h-64 w-full rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-      <p className="mb-3 text-sm font-medium text-zinc-300">Alerts (7 days)</p>
+    <div className="h-64 w-full rounded-fidelity border border-border bg-surface/70 p-4">
+      <p className="font-label mb-3 text-sm font-medium text-muted">
+        Alerts (7 days)
+      </p>
       <ResponsiveContainer width="100%" height="85%">
         <BarChart data={chartData}>
           <XAxis
             dataKey="day"
-            tick={{ fill: "#a1a1aa", fontSize: 11 }}
-            axisLine={{ stroke: "#3f3f46" }}
+            tick={{ fill: "rgb(var(--muted))", fontSize: 11 }}
+            axisLine={{ stroke: "rgb(var(--border))" }}
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fill: "#a1a1aa", fontSize: 11 }}
-            axisLine={{ stroke: "#3f3f46" }}
+            tick={{ fill: "rgb(var(--muted))", fontSize: 11 }}
+            axisLine={{ stroke: "rgb(var(--border))" }}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#18181b",
-              border: "1px solid #3f3f46",
+              backgroundColor: "rgb(var(--surface))",
+              border: "1px solid rgb(var(--border))",
               borderRadius: "8px",
             }}
-            labelStyle={{ color: "#e4e4e7" }}
+            labelStyle={{ color: "rgb(var(--foreground))" }}
           />
-          <Bar dataKey="alerts" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+          <Bar
+            dataKey="alerts"
+            fill="rgb(var(--primary))"
+            radius={[6, 6, 0, 0]}
+          />
         </BarChart>
       </ResponsiveContainer>
     </div>

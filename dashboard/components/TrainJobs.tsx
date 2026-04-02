@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { API_BASE } from "@/lib/config";
 import type { TrainingArtifact, TrainingJob, TrainingLog } from "@/lib/types";
-import { Loader2, RefreshCw, ShieldCheck, Square } from "lucide-react";
+import { Loader2, Play, RefreshCw, ShieldCheck, Square } from "lucide-react";
 
 type Props = {
   jobs: TrainingJob[];
@@ -24,7 +24,7 @@ export default function TrainJobs({
   onRefresh,
   onMessage,
 }: Props) {
-  const [busy, setBusy] = useState<"refresh" | "cancel" | "promote" | null>(null);
+  const [busy, setBusy] = useState<"refresh" | "cancel" | "promote" | "resume" | null>(null);
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === selectedJobId) ?? null,
@@ -43,6 +43,24 @@ export default function TrainJobs({
       await onRefresh();
     } catch {
       onMessage("Network error while cancelling job.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function resumeSelected() {
+    if (!selectedJob) return;
+    setBusy("resume");
+    try {
+      const r = await fetch(`${API_BASE}/training/jobs/${selectedJob.id}/resume`, {
+        method: "POST",
+      });
+      const j = await r.json();
+      onMessage(j?.message ?? (r.ok ? "Resume job queued." : "Resume failed."));
+      await onRefresh();
+      if (r.ok && j?.job?.id) onSelectJob(j.job.id);
+    } catch {
+      onMessage("Network error while queueing resume job.");
     } finally {
       setBusy(null);
     }
@@ -109,6 +127,23 @@ export default function TrainJobs({
             )}
             Cancel selected
           </button>
+          <button
+            type="button"
+            onClick={resumeSelected}
+            disabled={
+              busy !== null ||
+              !selectedJob ||
+              (selectedJob.status !== "cancelled" && selectedJob.status !== "failed")
+            }
+            className="inline-flex items-center gap-2 rounded-fidelity border border-border px-3 py-2 text-sm text-foreground hover:bg-neutral/15 disabled:opacity-50"
+          >
+            {busy === "resume" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+            Resume selected
+          </button>
         </div>
       </div>
 
@@ -139,6 +174,11 @@ export default function TrainJobs({
                         <p className="mt-1 text-xs text-muted">
                           {job.datasetName ?? job.datasetId} • {job.baseModel} • {job.device}
                         </p>
+                        {job.cancelRequested && (
+                          <p className="mt-1 text-xs text-amber-300">
+                            Stop requested. The trainer will halt after the current safe checkpoint.
+                          </p>
+                        )}
                       </div>
                       <div className="text-right text-xs text-muted">
                         <div>{Math.round((job.progress ?? 0) * 100)}%</div>

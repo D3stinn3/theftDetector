@@ -212,3 +212,22 @@ cython_debug/
 *.vob
 *.ogv
 *.asf
+
+# ML / Training artifacts
+runs/
+training_artifacts/
+training_uploads/
+training_workspace/
+*.pt
+
+# Database
+*.db
+
+# Logs
+error_log.txt
+
+# Backup files
+settings.backup.*.json
+
+# Test files (local dev)
+test_training_dataset_utils.py

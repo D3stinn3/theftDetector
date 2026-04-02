@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { API_BASE } from "@/lib/config";
-import type { TrainingDataset } from "@/lib/types";
+import { fetchTrainingDevices } from "@/lib/api";
+import type { TrainingDataset, TrainingDeviceCapabilities } from "@/lib/types";
 import { Loader2, Play } from "lucide-react";
 
 type Props = {
@@ -27,15 +28,49 @@ export default function TrainForm({
   const [validationSplit, setValidationSplit] = useState(0.2);
   const [patience, setPatience] = useState(10);
   const [busy, setBusy] = useState(false);
+  const [deviceCaps, setDeviceCaps] = useState<TrainingDeviceCapabilities>({
+    defaultDevice: "cpu",
+    devices: [{ id: "cpu", label: "CPU", available: true }],
+    cudaHealthy: false,
+    diagnostic: null,
+  });
 
   const selectedDataset = useMemo(
     () => datasets.find((dataset) => dataset.id === selectedDatasetId) ?? null,
     [datasets, selectedDatasetId]
   );
+  const selectedDatasetReady = selectedDataset?.status === "ready";
+  const selectedDeviceAvailable = useMemo(
+    () => deviceCaps.devices.find((item) => item.id === device)?.available ?? device === "cpu",
+    [deviceCaps.devices, device]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTrainingDevices().then((caps) => {
+      if (cancelled) return;
+      setDeviceCaps(caps);
+      setDevice((prev) => {
+        const currentAvailable = caps.devices.find((item) => item.id === prev)?.available;
+        return currentAvailable ? prev : caps.defaultDevice;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function startTraining() {
     if (!selectedDataset) {
       onMessage("Select a validated dataset first.");
+      return;
+    }
+    if (!selectedDatasetReady) {
+      onMessage("Validate the selected dataset and confirm it is ready before training.");
+      return;
+    }
+    if (!selectedDeviceAvailable) {
+      onMessage("The selected training device is not available in the backend runtime. Use CPU or fix CUDA first.");
       return;
     }
 
@@ -82,7 +117,25 @@ export default function TrainForm({
         <span className="font-medium">
           {selectedDataset?.name ?? "None selected"}
         </span>
+        {selectedDataset && (
+          <span className="ml-2 text-xs text-muted">
+            ({selectedDataset.status} • {selectedDataset.sampleCount} samples)
+          </span>
+        )}
       </div>
+
+      <div className="rounded-fidelity border border-border bg-background/60 px-3 py-2 text-xs text-muted">
+        Recommended first run: `yolov8n.pt`, `Object detection`, image size `640`,
+        batch `8`, patience `10`, and `CPU` unless CUDA is already confirmed working.
+        The validation split field is informational for pre-split YOLO datasets and
+        does not currently re-split uploaded data.
+      </div>
+
+      {!deviceCaps.cudaHealthy && deviceCaps.diagnostic && (
+        <div className="rounded-fidelity border border-amber-900/60 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
+          GPU training is currently unavailable. {deviceCaps.diagnostic}
+        </div>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <label className="space-y-1">
@@ -144,8 +197,12 @@ export default function TrainForm({
             value={device}
             onChange={(e) => setDevice(e.target.value)}
           >
-            <option value="cpu">CPU</option>
-            <option value="cuda">CUDA / GPU</option>
+            {deviceCaps.devices.map((option) => (
+              <option key={option.id} value={option.id} disabled={!option.available}>
+                {option.label}
+                {!option.available ? " (unavailable)" : ""}
+              </option>
+            ))}
           </select>
         </label>
         <label className="space-y-1">
@@ -175,7 +232,7 @@ export default function TrainForm({
       <button
         type="button"
         onClick={startTraining}
-        disabled={busy || !selectedDataset}
+        disabled={busy || !selectedDataset || !selectedDatasetReady || !selectedDeviceAvailable}
         className="inline-flex items-center gap-2 rounded-fidelity bg-primary px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-50"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}

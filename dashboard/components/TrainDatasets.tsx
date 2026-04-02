@@ -132,6 +132,12 @@ export default function TrainDatasets({
           Upload an archive or register an existing local path, then validate it
           before training.
         </p>
+        <ol className="mt-3 list-decimal space-y-1 pl-5 text-xs text-muted">
+          <li>Upload an archive or register a backend-local dataset path.</li>
+          <li>Select the dataset from the list below.</li>
+          <li>Click `Validate selected` and wait for `ready` with a non-zero sample count.</li>
+          <li>Only then start a training job from the configuration form.</li>
+        </ol>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -191,6 +197,10 @@ export default function TrainDatasets({
           <p className="text-xs text-muted">
             Use this when the dataset already exists on the same machine as the backend.
           </p>
+          <p className="text-xs text-muted">
+            Expected YOLO layout: dataset root with `data.yaml`, plus `train/images`,
+            `train/labels`, `valid/images`, and `valid/labels`.
+          </p>
           <button
             type="button"
             onClick={registerPath}
@@ -244,6 +254,12 @@ export default function TrainDatasets({
                           {dataset.status} • {dataset.detectedFormat ?? "unknown format"} •{" "}
                           {dataset.taskType ?? "unknown task"}
                         </p>
+                        {selected && dataset.status !== "ready" && (
+                          <p className="mt-2 text-xs text-amber-300">
+                            Validate this dataset before training. Broken YOLO split paths
+                            will fail validation and should be fixed or re-imported.
+                          </p>
+                        )}
                       </div>
                       <div className="text-right text-xs text-muted">
                         <div>{dataset.sampleCount} samples</div>

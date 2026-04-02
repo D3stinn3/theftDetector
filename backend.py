@@ -22,6 +22,8 @@ import requests
 from pydantic import BaseModel
 import sqlite3
 import pickle
+import torch
+from training_dataset_utils import inspect_yolo_dataset, normalize_uploaded_yolo_dataset
 try:
     import face_recognition
     FACE_REC_AVAILABLE = True
@@ -627,6 +629,7 @@ class TrainingJobResponse(BaseModel):
     createdAt: str
     startedAt: str | None = None
     finishedAt: str | None = None
+    cancelRequested: bool = False
     params: dict | None = None
     metrics: dict | None = None
     error: str | None = None
@@ -646,6 +649,25 @@ class TrainingLogResponse(BaseModel):
     ts: str
     level: str
     message: str
+
+
+class ResumeTrainingJobResponse(BaseModel):
+    message: str
+    job: TrainingJobResponse
+
+
+class TrainingDeviceInfo(BaseModel):
+    id: str
+    label: str
+    available: bool
+    reason: str | None = None
+
+
+class TrainingDeviceCapabilitiesResponse(BaseModel):
+    defaultDevice: str
+    devices: list[TrainingDeviceInfo]
+    cudaHealthy: bool
+    diagnostic: str | None = None
 
 def db_connect(row_factory: bool = False):
     conn = sqlite3.connect(DB_NAME, check_same_thread=False)
@@ -685,6 +707,7 @@ def row_to_training_job(row) -> dict:
         "createdAt": row["created_at"],
         "startedAt": row["started_at"],
         "finishedAt": row["finished_at"],
+        "cancelRequested": bool(row["cancel_requested"]),
         "params": params,
         "metrics": metrics,
         "error": row["error"],
@@ -701,41 +724,93 @@ def row_to_training_artifact(row) -> dict:
         "metrics": json.loads(row["metrics_json"]) if row["metrics_json"] else None,
     }
 
+
+def get_training_device_capabilities() -> TrainingDeviceCapabilitiesResponse:
+    devices = [TrainingDeviceInfo(id="cpu", label="CPU", available=True)]
+    cuda_healthy = False
+    diagnostic = None
+
+    try:
+        cuda_available = bool(torch.cuda.is_available())
+        device_count = int(torch.cuda.device_count())
+        if cuda_available and device_count > 0:
+            device_name = torch.cuda.get_device_name(0)
+            devices.append(
+                TrainingDeviceInfo(
+                    id="cuda:0",
+                    label=f"CUDA / GPU ({device_name})",
+                    available=True,
+                )
+            )
+            cuda_healthy = True
+        else:
+            diagnostic = (
+                f"CUDA unavailable. torch.cuda.is_available()={cuda_available}, "
+                f"torch.cuda.device_count()={device_count}"
+            )
+            devices.append(
+                TrainingDeviceInfo(
+                    id="cuda:0",
+                    label="CUDA / GPU",
+                    available=False,
+                    reason=diagnostic,
+                )
+            )
+    except Exception as exc:
+        diagnostic = f"CUDA initialization failed: {exc}"
+        devices.append(
+            TrainingDeviceInfo(
+                id="cuda:0",
+                label="CUDA / GPU",
+                available=False,
+                reason=diagnostic,
+            )
+        )
+
+    default_device = "cuda:0" if cuda_healthy else "cpu"
+    return TrainingDeviceCapabilitiesResponse(
+        defaultDevice=default_device,
+        devices=devices,
+        cudaHealthy=cuda_healthy,
+        diagnostic=diagnostic,
+    )
+
+
+def normalize_training_device(requested_device: str | None) -> str:
+    value = str(requested_device or "cpu").strip().lower()
+    if value in {"cpu"}:
+        return "cpu"
+    if value in {"cuda", "cuda:0", "0"}:
+        return "cuda:0"
+    raise HTTPException(
+        status_code=400,
+        detail=f"Unsupported training device '{requested_device}'. Use CPU or a valid CUDA device.",
+    )
+
+
+def require_usable_training_device(requested_device: str | None) -> str:
+    normalized = normalize_training_device(requested_device)
+    if normalized == "cpu":
+        return normalized
+
+    capabilities = get_training_device_capabilities()
+    if not capabilities.cudaHealthy:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "CUDA was requested, but the backend runtime cannot initialize GPU training. "
+                "Use CPU or fix the CUDA environment."
+            ),
+        )
+    return normalized
+
+def inspect_dataset(dataset_path: str):
+    return inspect_yolo_dataset(dataset_path)
+
+
 def detect_dataset_format(dataset_path: str) -> tuple[str, int, int]:
-    data_yaml = os.path.join(dataset_path, "data.yaml")
-    data_yml = os.path.join(dataset_path, "data.yml")
-    yaml_path = data_yaml if os.path.exists(data_yaml) else data_yml if os.path.exists(data_yml) else None
-
-    class_count = 0
-    sample_count = 0
-    image_root = None
-
-    if yaml_path:
-        try:
-            with open(yaml_path, "r", encoding="utf-8", errors="ignore") as f:
-                raw = f.read()
-            for line in raw.splitlines():
-                stripped = line.strip()
-                if stripped.startswith("nc:"):
-                    try:
-                        class_count = int(stripped.split(":", 1)[1].strip())
-                    except Exception:
-                        pass
-            image_root = os.path.join(dataset_path, "images")
-            if os.path.isdir(image_root):
-                for _, _, files in os.walk(image_root):
-                    sample_count += sum(1 for name in files if name.lower().endswith((".jpg", ".jpeg", ".png", ".bmp", ".webp")))
-            return "yolo", sample_count, class_count
-        except Exception:
-            pass
-
-    sample_exts = (".jpg", ".jpeg", ".png", ".bmp", ".webp", ".mp4", ".mov", ".avi", ".mkv")
-    for _, _, files in os.walk(dataset_path):
-        sample_count += sum(1 for name in files if name.lower().endswith(sample_exts))
-
-    if sample_count > 0:
-        return "generic_media", sample_count, class_count
-    return "unknown", 0, 0
+    inspection = inspect_dataset(dataset_path)
+    return inspection.detected_format, inspection.sample_count, inspection.class_count
 
 def upsert_training_dataset(*, dataset_id: str, name: str, source_type: str, local_path: str | None,
                             archive_path: str | None, detected_format: str | None, status: str,
@@ -811,11 +886,73 @@ def create_training_artifact(job_id: str, kind: str, path: str, metrics: dict | 
     conn.commit()
     conn.close()
 
+
+def get_training_artifacts_for_job(job_id: str) -> list[sqlite3.Row]:
+    conn = db_connect(row_factory=True)
+    c = conn.cursor()
+    c.execute(
+        "SELECT * FROM training_artifacts WHERE job_id = ? ORDER BY created_at DESC",
+        (job_id,),
+    )
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
+def get_latest_training_artifact(job_id: str, kind: str) -> sqlite3.Row | None:
+    conn = db_connect(row_factory=True)
+    c = conn.cursor()
+    c.execute(
+        "SELECT * FROM training_artifacts WHERE job_id = ? AND kind = ? ORDER BY created_at DESC LIMIT 1",
+        (job_id, kind),
+    )
+    row = c.fetchone()
+    conn.close()
+    return row
+
 class TrainingWorker:
     def __init__(self):
         self.thread = None
         self.stop_event = threading.Event()
         self.wake_event = threading.Event()
+        self.active_job_id: str | None = None
+        self.active_model: YOLO | None = None
+        self.active_epochs: int = 0
+
+    def _should_cancel(self, job_id: str) -> bool:
+        row = get_training_job_row(job_id)
+        return bool(row and row["cancel_requested"])
+
+    def _build_callbacks(self, job_id: str, epochs: int):
+        worker = self
+
+        def on_train_epoch_start(trainer):
+            current_epoch = int(getattr(trainer, "epoch", 0)) + 1
+            progress = min(0.95, 0.25 + (current_epoch - 1) / max(epochs, 1) * 0.7)
+            update_training_job(job_id, progress=progress, phase=f"Training epoch {current_epoch}/{epochs}")
+
+        def on_fit_epoch_end(trainer):
+            current_epoch = int(getattr(trainer, "epoch", 0)) + 1
+            progress = min(0.95, 0.25 + current_epoch / max(epochs, 1) * 0.7)
+            update_training_job(job_id, progress=progress, phase=f"Validating epoch {current_epoch}/{epochs}")
+            if worker._should_cancel(job_id):
+                setattr(trainer, "stop", True)
+
+        def on_train_batch_end(trainer):
+            if worker._should_cancel(job_id):
+                setattr(trainer, "stop", True)
+
+        def on_model_save(trainer):
+            last_path = str(getattr(trainer, "last", "") or "")
+            if last_path and os.path.exists(last_path):
+                update_training_job(job_id, phase=f"Checkpoint saved at epoch {int(getattr(trainer, 'epoch', 0)) + 1}/{epochs}")
+
+        return {
+            "on_train_epoch_start": on_train_epoch_start,
+            "on_fit_epoch_end": on_fit_epoch_end,
+            "on_train_batch_end": on_train_batch_end,
+            "on_model_save": on_model_save,
+        }
 
     def start(self):
         if self.thread and self.thread.is_alive():
@@ -853,6 +990,7 @@ class TrainingWorker:
     def _execute_job(self, row):
         job_id = row["id"]
         params = json.loads(row["params_json"]) if row["params_json"] else {}
+        self.active_job_id = job_id
         update_training_job(
             job_id,
             status="running",
@@ -883,21 +1021,32 @@ class TrainingWorker:
             batch = int(params.get("batch", 8))
             validation_split = float(params.get("validationSplit", 0.2))
             patience = int(params.get("patience", 10))
-            device = str(row["device"] or "cpu")
+            device = require_usable_training_device(row["device"])
+            resume_checkpoint = params.get("resumeCheckpointPath")
 
-            data_yaml = os.path.join(dataset_path, "data.yaml")
-            if not os.path.exists(data_yaml):
-                data_yaml = os.path.join(dataset_path, "data.yml")
-
-            if not os.path.exists(data_yaml):
-                raise RuntimeError("Training currently requires a YOLO dataset with data.yaml or data.yml.")
+            inspection = inspect_dataset(dataset_path)
+            if inspection.detected_format != "yolo" or not inspection.yaml_path:
+                raise RuntimeError(
+                    inspection.message
+                    or "Training currently requires a YOLO dataset with valid train/val paths."
+                )
+            data_yaml = inspection.yaml_path
 
             job_out_dir = os.path.join(TRAINING_WORKSPACE_DIR, job_id)
             os.makedirs(job_out_dir, exist_ok=True)
 
             update_training_job(job_id, progress=0.15, phase="Loading model")
-            append_training_log(job_id, "INFO", f"Loading base model {row['base_model']}.")
-            model = YOLO(row["base_model"])
+            if resume_checkpoint:
+                append_training_log(job_id, "INFO", f"Resuming training from checkpoint {resume_checkpoint}.")
+                model = YOLO(str(resume_checkpoint))
+            else:
+                append_training_log(job_id, "INFO", f"Loading base model {row['base_model']}.")
+                model = YOLO(row["base_model"])
+            self.active_model = model
+            self.active_epochs = epochs
+            callbacks = self._build_callbacks(job_id, epochs)
+            for event_name, callback in callbacks.items():
+                model.add_callback(event_name, callback)
 
             update_training_job(job_id, progress=0.25, phase="Training")
             append_training_log(
@@ -906,26 +1055,54 @@ class TrainingWorker:
                 f"Starting training with epochs={epochs}, imgsz={imgsz}, batch={batch}, device={device}, valSplit={validation_split}.",
             )
 
-            results = model.train(
-                data=data_yaml,
-                epochs=epochs,
-                imgsz=imgsz,
-                batch=batch,
-                device=device,
-                patience=patience,
-                project=TRAINING_WORKSPACE_DIR,
-                name=job_id,
-                exist_ok=True,
-                val=True,
-            )
+            train_kwargs = {
+                "data": data_yaml,
+                "epochs": epochs,
+                "imgsz": imgsz,
+                "batch": batch,
+                "device": device,
+                "patience": patience,
+                "project": TRAINING_WORKSPACE_DIR,
+                "name": job_id,
+                "exist_ok": True,
+                "val": True,
+            }
+            if resume_checkpoint:
+                train_kwargs = {"resume": True}
+
+            results = model.train(**train_kwargs)
 
             best_path = None
+            last_path = None
             try:
-                best_path = getattr(results, "save_dir", None)
-                if best_path:
-                    best_path = os.path.join(str(best_path), "weights", "best.pt")
+                save_dir = getattr(results, "save_dir", None)
+                if save_dir:
+                    best_path = os.path.join(str(save_dir), "weights", "best.pt")
+                    last_path = os.path.join(str(save_dir), "weights", "last.pt")
             except Exception:
                 best_path = None
+                last_path = None
+
+            if last_path and os.path.exists(last_path):
+                create_training_artifact(
+                    job_id,
+                    "resume_checkpoint",
+                    last_path,
+                    {"epochs": epochs, "imgsz": imgsz, "batch": batch},
+                )
+
+            if self._should_cancel(job_id):
+                update_training_job(
+                    job_id,
+                    status="cancelled",
+                    progress=min(0.99, float(get_training_job_row(job_id)["progress"] or 0.0)),
+                    phase="Cancelled",
+                    finished_at=datetime.now().isoformat(),
+                    error="Stopped by user request.",
+                    cancel_requested=0,
+                )
+                append_training_log(job_id, "WARN", "Training stopped after checkpoint save.")
+                return
 
             if not best_path or not os.path.exists(best_path):
                 raise RuntimeError("Training finished but no best.pt artifact was produced.")
@@ -939,6 +1116,7 @@ class TrainingWorker:
                 "batch": batch,
                 "validationSplit": validation_split,
                 "patience": patience,
+                "resumeCheckpointPath": resume_checkpoint,
             }
             create_training_artifact(job_id, "best_weights", promoted_path, metrics)
 
@@ -950,6 +1128,7 @@ class TrainingWorker:
                 finished_at=datetime.now().isoformat(),
                 metrics_json=json.dumps(metrics),
                 error=None,
+                cancel_requested=0,
             )
             append_training_log(job_id, "INFO", f"Training completed. Artifact saved to {promoted_path}.")
         except Exception as e:
@@ -960,8 +1139,13 @@ class TrainingWorker:
                 phase="Failed",
                 finished_at=datetime.now().isoformat(),
                 error=str(e),
+                cancel_requested=0,
             )
             append_training_log(job_id, "ERROR", str(e))
+        finally:
+            self.active_job_id = None
+            self.active_model = None
+            self.active_epochs = 0
 
 training_worker = TrainingWorker()
 
@@ -1187,7 +1371,15 @@ async def upload_training_dataset(
         # Leave the file as-is for unsupported archive types and let validation report it.
         pass
 
-    detected_format, sample_count, class_count = detect_dataset_format(extract_dir) if extracted else ("unknown", 0, 0)
+    if extracted:
+        normalize_uploaded_yolo_dataset(extract_dir)
+
+    inspection = inspect_dataset(extract_dir) if extracted else None
+    detected_format, sample_count, class_count = (
+        (inspection.detected_format, inspection.sample_count, inspection.class_count)
+        if inspection
+        else ("unknown", 0, 0)
+    )
     status = "ready" if detected_format == "yolo" else "uploaded" if extracted else "unsupported"
     created_at = datetime.now().isoformat()
     upsert_training_dataset(
@@ -1213,8 +1405,13 @@ async def register_training_dataset_path(payload: RegisterTrainingDatasetPathInp
     if not os.path.isdir(dataset_path):
         raise HTTPException(status_code=400, detail="Dataset path does not exist or is not a directory")
 
-    detected_format, sample_count, class_count = detect_dataset_format(dataset_path)
+    inspection = inspect_dataset(dataset_path)
     dataset_id = str(uuid.uuid4())
+    detected_format, sample_count, class_count = (
+        inspection.detected_format,
+        inspection.sample_count,
+        inspection.class_count,
+    )
     status = "ready" if detected_format == "yolo" else "needs_preprocessing" if detected_format == "generic_media" else "unsupported"
     upsert_training_dataset(
         dataset_id=dataset_id,
@@ -1254,7 +1451,15 @@ async def validate_training_dataset(dataset_id: str):
     if not dataset_path or not os.path.isdir(dataset_path):
         raise HTTPException(status_code=400, detail="Dataset is not available on disk")
 
-    detected_format, sample_count, class_count = detect_dataset_format(dataset_path)
+    if row["source_type"] == "upload":
+        normalize_uploaded_yolo_dataset(dataset_path)
+
+    inspection = inspect_dataset(dataset_path)
+    detected_format, sample_count, class_count = (
+        inspection.detected_format,
+        inspection.sample_count,
+        inspection.class_count,
+    )
     status = "ready" if detected_format == "yolo" else "needs_preprocessing" if detected_format == "generic_media" else "unsupported"
     upsert_training_dataset(
         dataset_id=row["id"],
@@ -1270,13 +1475,19 @@ async def validate_training_dataset(dataset_id: str):
         notes=row["notes"] or "",
         task_type=row["task_type"] or "detect",
     )
-    return {"message": f"Validation complete. Status: {status}."}
+    detail = inspection.message or f"Validation complete. Status: {status}."
+    return {"message": detail}
 
 @app.post("/training/jobs", response_model=TrainingJobResponse)
 async def create_training_job(payload: CreateTrainingJobInput):
     dataset = get_training_dataset_or_404(payload.datasetId)
+    if dataset["local_path"] and os.path.isdir(dataset["local_path"]):
+        inspection = inspect_dataset(dataset["local_path"])
+        if inspection.detected_format != "yolo":
+            raise HTTPException(status_code=400, detail=inspection.message or f"Dataset is not ready for training: {dataset['status']}")
     if dataset["status"] not in ("ready", "validated"):
         raise HTTPException(status_code=400, detail=f"Dataset is not ready for training: {dataset['status']}")
+    resolved_device = require_usable_training_device(payload.device)
 
     job_id = str(uuid.uuid4())
     conn = db_connect()
@@ -1291,7 +1502,7 @@ async def create_training_job(payload: CreateTrainingJobInput):
             payload.baseModel,
             payload.taskType,
             json.dumps(payload.model_dump()),
-            payload.device,
+            resolved_device,
             datetime.now().isoformat(),
         ),
     )
@@ -1301,6 +1512,11 @@ async def create_training_job(payload: CreateTrainingJobInput):
     training_worker.notify()
     row = get_training_job_row(job_id)
     return TrainingJobResponse(**row_to_training_job(row))
+
+
+@app.get("/training/devices", response_model=TrainingDeviceCapabilitiesResponse)
+async def get_training_devices():
+    return get_training_device_capabilities()
 
 @app.get("/training/jobs", response_model=list[TrainingJobResponse])
 async def list_training_jobs():
@@ -1348,9 +1564,55 @@ async def cancel_training_job(job_id: str):
         raise HTTPException(status_code=404, detail="Training job not found")
     if row["status"] in ("completed", "failed", "cancelled"):
         return {"message": f"Job already {row['status']}."}
-    update_training_job(job_id, status="cancelled", phase="Cancelled", finished_at=datetime.now().isoformat(), error="Cancelled from dashboard.")
-    append_training_log(job_id, "WARN", "Job cancelled from dashboard.")
-    return {"message": "Training job cancelled."}
+    if row["status"] == "queued":
+        update_training_job(job_id, status="cancelled", phase="Cancelled", finished_at=datetime.now().isoformat(), error="Cancelled from dashboard.", cancel_requested=0)
+        append_training_log(job_id, "WARN", "Queued job cancelled from dashboard.")
+        return {"message": "Queued job cancelled."}
+    update_training_job(job_id, status="stopping", phase="Stop requested", cancel_requested=1, error="Stop requested from dashboard.")
+    append_training_log(job_id, "WARN", "Stop requested from dashboard. Training will halt after the current safe checkpoint.")
+    return {"message": "Stop requested. Training will stop after the current safe checkpoint."}
+
+
+@app.post("/training/jobs/{job_id}/resume", response_model=ResumeTrainingJobResponse)
+async def resume_training_job(job_id: str):
+    row = get_training_job_row(job_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Training job not found")
+
+    checkpoint = get_latest_training_artifact(job_id, "resume_checkpoint")
+    if not checkpoint or not checkpoint["path"] or not os.path.exists(checkpoint["path"]):
+        raise HTTPException(status_code=400, detail="No resume checkpoint is available for this job.")
+
+    params = json.loads(row["params_json"]) if row["params_json"] else {}
+    params["resumeCheckpointPath"] = checkpoint["path"]
+    new_job_id = str(uuid.uuid4())
+
+    conn = db_connect()
+    c = conn.cursor()
+    c.execute(
+        """INSERT INTO training_jobs
+           (id, dataset_id, base_model, task_type, status, progress, phase, params_json, device, created_at, started_at, finished_at, error, metrics_json, cancel_requested)
+           VALUES (?, ?, ?, ?, 'queued', 0.0, 'Queued to resume', ?, ?, ?, NULL, NULL, NULL, NULL, 0)""",
+        (
+            new_job_id,
+            row["dataset_id"],
+            checkpoint["path"],
+            row["task_type"],
+            json.dumps(params),
+            row["device"],
+            datetime.now().isoformat(),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    append_training_log(new_job_id, "INFO", f"Resume job queued from checkpoint {checkpoint['path']}.")
+    training_worker.notify()
+    new_row = get_training_job_row(new_job_id)
+    return ResumeTrainingJobResponse(
+        message="Resume job queued from latest checkpoint.",
+        job=TrainingJobResponse(**row_to_training_job(new_row)),
+    )
 
 @app.get("/training/artifacts", response_model=list[TrainingArtifactResponse])
 async def list_training_artifacts():

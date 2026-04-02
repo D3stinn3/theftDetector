@@ -26,9 +26,10 @@ built with Next.js, the dashboard offers a centralized control room experience:
 
 ### 4. Alert History & Evidence
 ![Alert History](docs/alert_history.png)
-*   **Event Logging:** Every detection is saved to a local SQLite database with a timestamp, alert type, and confidence score.
-*   **Snapshot Capture:** High-resolution images of the event are automatically saved for evidence.
-*   **History Viewer:** Browse past alerts, view snapshots, and export data directly from the interface.
+
+*   **Event Logging:** Every detection is saved to a local SQLite database with a timestamp, alert type, and snapshot path.
+*   **Snapshot Capture:** JPEG images of the event are automatically saved to the `alerts/` directory for evidence.
+*   **History Viewer:** Browse past alerts and view snapshots directly from the interface.
 
 
 
@@ -42,13 +43,13 @@ Stay informed even when away from the desk:
 ### 6. Customizable Security Zones
 
 *   **Region of Interest (ROI):** Users can draw custom polygons on the camera feed to define sensitive areas (e.g., cash registers, high-value shelves).
-*   **Zone-Specific Rules:** Detection sensitivity can be adjusted based on whether a person is inside or outside these zones.
+*   **Zone-Specific Triggers:** Loitering and reaching detections are only fired when a person is inside a defined ROI polygon.
 
 
 
 ## Technical Architecture
 
-*   **Backend:** Python, FastAPI, OpenCV, Ultralytics YOLOv8, Face Recognition, Albumentations
+*   **Backend:** Python, FastAPI, OpenCV, Ultralytics YOLOv8, Face Recognition, LAPX
 *   **Frontend:** Next.js 14, React, Tailwind CSS, Recharts, Lucide React
 *   **Database:** SQLite (Lightweight, local storage for events and faces)
 *   **Communication:** WebSockets (Real-time data), SMTP (Email), HTTPS (Telegram API)
@@ -64,8 +65,8 @@ Stay informed even when away from the desk:
 Clone the repository and install the required Python packages:
 
 ```bash
-git clone https://github.com/Start-Up-Vahap/Theft-Detection.git
-cd Theft-Detection
+git clone https://github.com/D3stinn3/theftDetector.git
+cd theftDetector
 pip install -r requirements.txt
 ```
 
@@ -112,7 +113,3 @@ Open your browser and navigate to `http://localhost:3000`.
 ## License 
 
 Distributed under the MIT License. See `LICENSE` for more information.
-
-____________________________________________________________________
-
-*Developer: Abdulvahap Öğüt*

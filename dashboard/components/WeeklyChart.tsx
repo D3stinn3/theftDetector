@@ -19,29 +19,34 @@ export default function WeeklyChart({ data }: Props) {
   }));
 
   return (
-    <div className="h-64 w-full rounded-fidelity border border-border bg-surface/70 p-4">
-      <p className="font-label mb-3 text-sm font-medium text-muted">
-        Alerts (7 days)
+    <div className="h-64 w-full rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 backdrop-blur-xl">
+      <p className="font-label mb-3 text-sm font-medium uppercase tracking-wide text-muted">
+        Alerts — 7 days
       </p>
       <ResponsiveContainer width="100%" height="85%">
         <BarChart data={chartData}>
           <XAxis
             dataKey="day"
-            tick={{ fill: "rgb(var(--muted))", fontSize: 11 }}
-            axisLine={{ stroke: "rgb(var(--border))" }}
+            tick={{ fill: "rgb(110 120 145)", fontSize: 11 }}
+            axisLine={{ stroke: "rgba(45,50,70,0.8)" }}
+            tickLine={false}
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fill: "rgb(var(--muted))", fontSize: 11 }}
-            axisLine={{ stroke: "rgb(var(--border))" }}
+            tick={{ fill: "rgb(110 120 145)", fontSize: 11 }}
+            axisLine={{ stroke: "rgba(45,50,70,0.8)" }}
+            tickLine={false}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "rgb(var(--surface))",
-              border: "1px solid rgb(var(--border))",
-              borderRadius: "8px",
+              backgroundColor: "rgba(18,20,26,0.95)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "12px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
             }}
-            labelStyle={{ color: "rgb(var(--foreground))" }}
+            labelStyle={{ color: "rgb(220,222,232)" }}
+            itemStyle={{ color: "rgb(255,107,0)" }}
+            cursor={{ fill: "rgba(255,107,0,0.06)" }}
           />
           <Bar
             dataKey="alerts"

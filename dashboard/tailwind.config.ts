@@ -19,6 +19,7 @@ const config: Config = {
         secondary: "rgb(var(--secondary))",
         tertiary: "rgb(var(--tertiary))",
         neutral: "rgb(var(--neutral))",
+        accent: "rgb(var(--accent-orange))",
       },
       fontFamily: {
         body: ["var(--font-body)", "system-ui", "sans-serif"],
@@ -27,7 +28,7 @@ const config: Config = {
         sans: ["var(--font-body)", "system-ui", "sans-serif"],
       },
       borderRadius: {
-        fidelity: "0.5rem",
+        fidelity: "1rem",
       },
     },
   },

@@ -2,97 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── Obsidian dark palette ──────────────────────────────────────────────── */
 :root {
-  /* Fidelity seed palette (as RGB triplets for Tailwind rgb(var(--x))). */
-  --primary: 0 253 189; /* #00fdbd */
-  --secondary: 61 132 104; /* #3d8468 */
-  --tertiary: 255 224 70; /* #ffe046 */
-  --neutral: 111 121 115; /* #6f7973 */
-  --accent-orange: 255 122 24;
+  --primary:      255 107 0;   /* #ff6b00 – Radiant Orange (CTA / active)    */
+  --secondary:    0 255 190;   /* #00ffbe – Emerald Green (success / live)   */
+  --tertiary:     255 77 0;    /* #ff4d00 – Danger Red-Orange (alerts)       */
+  --neutral:      90 100 120;  /* slate-gray                                  */
+  --accent-orange: 255 107 0;  /* alias of primary                           */
 
-  /* Light mode surfaces */
-  --background: 249 251 250;
-  --surface: 255 255 255;
-  --foreground: 16 24 20;
-  --muted: 79 91 85;
-  --border: 214 222 217;
+  --background:   10 12 16;    /* #0a0c10 – deep obsidian                    */
+  --surface:      18 20 26;    /* #12141a – midnight blue                    */
+  --foreground:   220 222 232; /* near-white                                  */
+  --muted:        110 120 145; /* medium slate-gray                           */
+  --border:       45 50 70;    /* dark blue-gray                              */
 }
 
-/* Dark mode (class-based for Tailwind `dark:` utilities). */
-.dark {
-  --background: 9 13 12;
-  --surface: 14 20 18;
-  --foreground: 236 242 239;
-  --muted: 154 168 161;
-  --border: 40 52 46;
-  --accent-orange: 255 140 64;
-}
-
-/* Fallback for users without a manual toggle: follow OS preference. */
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --background: 9 13 12;
-    --surface: 14 20 18;
-    --foreground: 236 242 239;
-    --muted: 154 168 161;
-    --border: 40 52 46;
-  }
-}
-
+/* ─── Body ───────────────────────────────────────────────────────────────── */
 body {
   color: rgb(var(--foreground));
   background: rgb(var(--background));
   font-family: var(--font-body), system-ui, sans-serif;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+/* ─── Select / option (best-effort dark styling) ─────────────────────────── */
+select option {
+  background-color: rgb(var(--surface));
+  color: rgb(var(--foreground));
+}
 
-  /* Playback job progress bar width via data attribute */
+/* ─── Utilities ──────────────────────────────────────────────────────────── */
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+
+  /* Progress-bar width driven by data attribute */
   .progress-bar[data-pct] {
     width: calc(attr(data-pct number) * 1%);
   }
 
+  /* ── Background: obsidian + colored gradient blobs ──────────────────── */
   .app-bg {
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background-image:
-      radial-gradient(900px circle at 18% 12%, rgb(var(--primary) / 0.12), transparent 55%),
-      radial-gradient(700px circle at 78% 22%, rgb(var(--tertiary) / 0.10), transparent 52%),
-      radial-gradient(900px circle at 70% 80%, rgb(var(--secondary) / 0.10), transparent 60%),
-      url("/bg/store-aisle.svg");
-    background-size: cover;
-    background-position: center;
-    filter: saturate(1.05) contrast(1.02);
-    transform: scale(1.04);
+    background:
+      radial-gradient(ellipse 900px 650px at 15% 8%,  rgba(59, 130, 246, 0.13) 0%, transparent 60%),
+      radial-gradient(ellipse 700px 550px at 78% 18%, rgba(139, 92, 246, 0.10) 0%, transparent 55%),
+      radial-gradient(ellipse 750px 650px at 62% 88%, rgba(255, 107, 0,  0.09) 0%, transparent 55%),
+      rgb(var(--background));
   }
 
-  .app-bg::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      180deg,
-      rgb(var(--background) / 0.50),
-      rgb(var(--background) / 0.82)
-    );
-  }
-
+  /* ── Primary glass panel (sidebar, modals, high-hierarchy cards) ─────── */
   .glass {
-    background: linear-gradient(
-      180deg,
-      rgb(var(--surface) / 0.72),
-      rgb(var(--surface) / 0.52)
-    );
-    border: 1px solid rgb(var(--border) / 0.65);
-    backdrop-filter: blur(14px) saturate(1.2);
-    -webkit-backdrop-filter: blur(14px) saturate(1.2);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(28px) saturate(1.4);
+    -webkit-backdrop-filter: blur(28px) saturate(1.4);
   }
 
+  /* Specular-highlight shimmer on the top-left edge */
   .glass-edge {
     position: relative;
     overflow: hidden;
@@ -104,46 +72,40 @@ body {
     inset: 0;
     pointer-events: none;
     background:
-      radial-gradient(1200px 220px at 18% 0%, rgb(255 255 255 / 0.18), transparent 50%),
-      linear-gradient(180deg, rgb(255 255 255 / 0.10), transparent 30%);
+      linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, transparent 45%),
+      linear-gradient(180deg,  rgba(255, 255, 255, 0.05) 0%, transparent 30%);
     mix-blend-mode: overlay;
-    opacity: 0.9;
+    opacity: 0.85;
   }
 
-  .dark .glass-edge::before {
-    opacity: 0.55;
-  }
-
+  /* Heavy shadow to ground the panels */
   .glass-shadow {
     box-shadow:
-      0 20px 60px rgb(0 0 0 / 0.20),
-      0 1px 0 rgb(255 255 255 / 0.08) inset;
+      0 32px 80px rgba(0, 0, 0, 0.55),
+      0 1px 0   rgba(255, 255, 255, 0.07) inset;
   }
 
-  .dark .glass-shadow {
-    box-shadow:
-      0 24px 70px rgb(0 0 0 / 0.45),
-      0 1px 0 rgb(255 255 255 / 0.06) inset;
-  }
-
+  /* ── Orange glow (faces / alert highlights) ──────────────────────────── */
   .glow-faces {
     box-shadow:
-      0 0 0 1px rgb(var(--accent-orange) / 0.35),
-      0 10px 32px rgb(var(--accent-orange) / 0.20),
-      0 0 28px rgb(var(--accent-orange) / 0.22);
+      0 0 0  1px rgba(255, 107, 0, 0.35),
+      0 10px 32px rgba(255, 107, 0, 0.20),
+      0 0 28px rgba(255, 107, 0, 0.22);
   }
 
+  /* Orange live dot */
   .dot-orange {
     width: 0.5rem;
     height: 0.5rem;
     border-radius: 9999px;
-    background: rgb(var(--accent-orange) / 0.95);
-    box-shadow: 0 0 0 3px rgb(var(--accent-orange) / 0.18);
+    background: rgba(255, 107, 0, 0.95);
+    box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.20);
   }
 
+  /* ── Fallback when backdrop-filter is unsupported ────────────────────── */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .glass {
-      background: rgb(var(--surface) / 0.90);
+      background: rgba(18, 20, 26, 0.96);
     }
   }
 }

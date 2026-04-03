@@ -68,7 +68,7 @@ export default function TrainPage() {
     let cancelled = false;
 
     async function loadLogs() {
-      const nextLogs = await fetchTrainingLogs(selectedJobId);
+      const nextLogs = await fetchTrainingLogs(selectedJobId!);
       if (!cancelled) setLogs(nextLogs);
     }
 
@@ -83,7 +83,7 @@ export default function TrainPage() {
   return (
     <div className="space-y-8">
       <header className="max-w-4xl">
-        <h1 className="font-headline text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
           Train
         </h1>
         <p className="mt-1 text-sm text-muted">
@@ -93,7 +93,7 @@ export default function TrainPage() {
       </header>
 
       {msg && (
-        <p className="max-w-4xl rounded-fidelity border border-border bg-surface px-3 py-2 text-sm text-foreground">
+        <p className="max-w-4xl rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-foreground">
           {msg}
         </p>
       )}

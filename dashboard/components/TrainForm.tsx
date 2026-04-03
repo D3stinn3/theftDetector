@@ -55,25 +55,19 @@ export default function TrainForm({
         return currentAvailable ? prev : caps.defaultDevice;
       });
     });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   async function startTraining() {
-    if (!selectedDataset) {
-      onMessage("Select a validated dataset first.");
-      return;
-    }
+    if (!selectedDataset) { onMessage("Select a validated dataset first."); return; }
     if (!selectedDatasetReady) {
       onMessage("Validate the selected dataset and confirm it is ready before training.");
       return;
     }
     if (!selectedDeviceAvailable) {
-      onMessage("The selected training device is not available in the backend runtime. Use CPU or fix CUDA first.");
+      onMessage("The selected training device is not available. Use CPU or fix CUDA first.");
       return;
     }
-
     setBusy(true);
     try {
       const r = await fetch(`${API_BASE}/training/jobs`, {
@@ -81,14 +75,7 @@ export default function TrainForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           datasetId: selectedDataset.id,
-          baseModel,
-          taskType,
-          epochs,
-          imgsz,
-          batch,
-          device,
-          validationSplit,
-          patience,
+          baseModel, taskType, epochs, imgsz, batch, device, validationSplit, patience,
         }),
       });
       const j = await r.json();
@@ -101,10 +88,13 @@ export default function TrainForm({
     }
   }
 
+  const inputCls =
+    "w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-foreground placeholder:text-muted/60 focus:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary/[0.08]";
+
   return (
-    <section className="space-y-4 rounded-fidelity border border-border bg-surface/70 p-4">
+    <section className="space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 backdrop-blur-xl">
       <div>
-        <h2 className="text-sm font-medium uppercase tracking-wide text-muted">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">
           Training configuration
         </h2>
         <p className="mt-1 text-sm text-muted">
@@ -112,7 +102,8 @@ export default function TrainForm({
         </p>
       </div>
 
-      <div className="rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground">
+      {/* Selected dataset display */}
+      <div className="rounded-xl border border-white/[0.06] bg-black/20 px-3 py-2 text-sm text-foreground">
         Selected dataset:{" "}
         <span className="font-medium">
           {selectedDataset?.name ?? "None selected"}
@@ -124,24 +115,27 @@ export default function TrainForm({
         )}
       </div>
 
-      <div className="rounded-fidelity border border-border bg-background/60 px-3 py-2 text-xs text-muted">
-        Recommended first run: `yolov8n.pt`, `Object detection`, image size `640`,
-        batch `8`, patience `10`, and `CPU` unless CUDA is already confirmed working.
-        The validation split field is informational for pre-split YOLO datasets and
-        does not currently re-split uploaded data.
+      {/* Hint box */}
+      <div className="rounded-xl border border-white/[0.06] bg-black/20 px-3 py-2 text-xs text-muted">
+        Recommended first run: <code className="text-foreground">yolov8n.pt</code>, Object detection,
+        image size <code className="text-foreground">640</code>, batch <code className="text-foreground">8</code>,
+        patience <code className="text-foreground">10</code>, and CPU unless CUDA is confirmed working.
+        The validation split field is informational for pre-split YOLO datasets.
       </div>
 
+      {/* CUDA warning */}
       {!deviceCaps.cudaHealthy && deviceCaps.diagnostic && (
-        <div className="rounded-fidelity border border-amber-900/60 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
+        <div className="rounded-xl border border-amber-900/50 bg-amber-950/20 px-3 py-2 text-xs text-amber-200">
           GPU training is currently unavailable. {deviceCaps.diagnostic}
         </div>
       )}
 
+      {/* Config grid */}
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <label className="space-y-1">
           <span className="text-xs text-muted">Base model</span>
           <input
-            className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className={inputCls}
             value={baseModel}
             onChange={(e) => setBaseModel(e.target.value)}
           />
@@ -149,7 +143,7 @@ export default function TrainForm({
         <label className="space-y-1">
           <span className="text-xs text-muted">Task type</span>
           <select
-            className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className={`${inputCls} cursor-pointer appearance-none`}
             value={taskType}
             onChange={(e) => setTaskType(e.target.value)}
           >
@@ -164,7 +158,7 @@ export default function TrainForm({
           <input
             type="number"
             min={1}
-            className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className={inputCls}
             value={epochs}
             onChange={(e) => setEpochs(Number(e.target.value))}
           />
@@ -175,7 +169,7 @@ export default function TrainForm({
             type="number"
             min={64}
             step={32}
-            className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className={inputCls}
             value={imgsz}
             onChange={(e) => setImgsz(Number(e.target.value))}
           />
@@ -185,7 +179,7 @@ export default function TrainForm({
           <input
             type="number"
             min={1}
-            className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className={inputCls}
             value={batch}
             onChange={(e) => setBatch(Number(e.target.value))}
           />
@@ -193,14 +187,13 @@ export default function TrainForm({
         <label className="space-y-1">
           <span className="text-xs text-muted">Device</span>
           <select
-            className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className={`${inputCls} cursor-pointer appearance-none`}
             value={device}
             onChange={(e) => setDevice(e.target.value)}
           >
             {deviceCaps.devices.map((option) => (
               <option key={option.id} value={option.id} disabled={!option.available}>
-                {option.label}
-                {!option.available ? " (unavailable)" : ""}
+                {option.label}{!option.available ? " (unavailable)" : ""}
               </option>
             ))}
           </select>
@@ -212,7 +205,7 @@ export default function TrainForm({
             min={0.05}
             max={0.5}
             step={0.05}
-            className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className={inputCls}
             value={validationSplit}
             onChange={(e) => setValidationSplit(Number(e.target.value))}
           />
@@ -222,7 +215,7 @@ export default function TrainForm({
           <input
             type="number"
             min={1}
-            className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className={inputCls}
             value={patience}
             onChange={(e) => setPatience(Number(e.target.value))}
           />
@@ -233,7 +226,7 @@ export default function TrainForm({
         type="button"
         onClick={startTraining}
         disabled={busy || !selectedDataset || !selectedDatasetReady || !selectedDeviceAvailable}
-        className="inline-flex items-center gap-2 rounded-fidelity bg-primary px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-50"
+        className="inline-flex items-center gap-2 rounded-xl bg-[rgb(var(--accent-orange))] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(255,107,0,0.35)] transition hover:brightness-110 hover:shadow-[0_0_28px_rgba(255,107,0,0.5)] disabled:opacity-50 disabled:shadow-none"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
         Start training

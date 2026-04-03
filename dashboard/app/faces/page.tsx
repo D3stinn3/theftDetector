@@ -1,96 +1,80 @@
 import { fetchFaces } from "@/lib/api";
 import FaceRegisterForm from "@/components/FaceRegisterForm";
-import { Bell, Search, Sparkles, UserRound } from "lucide-react";
+import { Bell, Users, UserRound, User } from "lucide-react";
 
 export default async function FacesPage() {
   const faces = await fetchFaces();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="glass glass-edge glass-shadow rounded-fidelity px-6 py-5">
-        <div className="grid grid-cols-[1fr_minmax(0,28rem)_1fr] items-start gap-4">
-          <div />
-          <div className="text-center">
-            <h1 className="font-headline text-2xl font-semibold tracking-tight text-foreground">
-              Face registry
-            </h1>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              Blacklist / VIP encodings stored in the backend database (requires{" "}
-              <code className="rounded-fidelity bg-neutral/10 px-1 py-0.5 text-foreground">
-                face_recognition
-              </code>
-              ).
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-2 pt-0.5">
-            <button
-              type="button"
-              aria-label="Search"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-fidelity bg-white/5 text-foreground/85 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-foreground"
-            >
-              <Search className="h-[18px] w-[18px]" strokeWidth={1.75} />
-            </button>
-            <button
-              type="button"
-              aria-label="Notifications"
-              className="relative inline-flex h-10 w-10 items-center justify-center rounded-fidelity bg-white/5 text-foreground/85 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-foreground"
-            >
-              <Bell className="h-[18px] w-[18px]" strokeWidth={1.75} />
-              <span className="absolute right-2 top-2 dot-orange" />
-            </button>
-            <button
-              type="button"
-              aria-label="Profile"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[rgb(var(--accent-orange)/0.22)] text-[rgb(var(--accent-orange))] ring-1 ring-[rgb(var(--accent-orange)/0.35)] transition hover:bg-[rgb(var(--accent-orange)/0.30)]"
-            >
-              <UserRound className="h-[18px] w-[18px]" strokeWidth={1.75} />
-            </button>
-          </div>
+    <div className="space-y-6">
+      {/* ── Page header row ── */}
+      <div className="flex items-center justify-between">
+        <h1 className="font-headline text-4xl font-bold tracking-tight text-foreground">
+          Face Registry
+        </h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            aria-label="All faces"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.05] text-foreground/80 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-foreground"
+          >
+            <Users className="h-5 w-5" strokeWidth={1.75} />
+          </button>
+          <button
+            type="button"
+            aria-label="Notifications"
+            className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl bg-white/[0.05] text-foreground/80 ring-1 ring-white/10 transition hover:bg-white/10 hover:text-foreground"
+          >
+            <Bell className="h-5 w-5" strokeWidth={1.75} />
+            <span className="absolute right-2.5 top-2.5 dot-orange" />
+          </button>
+          <button
+            type="button"
+            aria-label="Profile"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(255,107,0,0.18)] text-[rgb(var(--accent-orange))] ring-1 ring-[rgba(255,107,0,0.35)] transition hover:bg-[rgba(255,107,0,0.28)]"
+          >
+            <UserRound className="h-5 w-5" strokeWidth={1.75} />
+          </button>
         </div>
-      </header>
+      </div>
 
+      {/* ── Register face card ── */}
       <FaceRegisterForm />
 
-      <section className="relative overflow-hidden rounded-fidelity glass glass-edge glass-shadow">
-        <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[2px] bg-gradient-to-r from-transparent via-[rgb(var(--accent-orange))] to-transparent opacity-80 shadow-[0_0_12px_rgba(249,115,22,0.35)]"
-          aria-hidden
-        />
-        <div className="relative bg-[radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.05)_1px,transparent_0)] [background-size:20px_20px] px-6 pb-10 pt-6">
-          <h2 className="text-sm font-semibold text-foreground">Registered</h2>
-          {faces.length === 0 ? (
-            <div className="relative grid min-h-[220px] place-items-center px-4 py-12">
-              <p className="text-base font-medium text-foreground/90">
-                No faces yet.
-              </p>
-              <Sparkles
-                className="pointer-events-none absolute bottom-4 right-4 h-5 w-5 text-orange-400/80"
-                strokeWidth={1.5}
-                aria-hidden
-              />
-            </div>
-          ) : (
-            <ul className="mt-4 divide-y divide-border">
-              {faces.map((f) => (
-                <li
-                  key={f.id}
-                  className="flex items-center justify-between py-3 text-sm first:pt-0"
-                >
-                  <span className="font-medium text-foreground">{f.name}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      f.type === "blacklist"
-                        ? "bg-red-950/80 text-red-300"
-                        : "bg-secondary/30 text-foreground"
-                    }`}
-                  >
-                    {f.type}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+      {/* ── Registered faces grid ── */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">Registered</h2>
+
+        {faces.length === 0 ? (
+          <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.02] text-muted">
+            No faces registered yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {faces.map((f) => (
+              <div
+                key={f.id}
+                className="relative flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-4 backdrop-blur-xl transition hover:bg-white/[0.07]"
+              >
+                {/* Orange badge — top-right */}
+                <div className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-[rgba(255,107,0,0.18)] ring-1 ring-[rgba(255,107,0,0.35)]">
+                  <UserRound className="h-3.5 w-3.5 text-[rgb(var(--accent-orange))]" />
+                </div>
+
+                {/* Avatar circle */}
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/[0.10]">
+                  <User className="h-7 w-7 text-muted" strokeWidth={1.5} />
+                </div>
+
+                {/* Info */}
+                <div className="min-w-0 pr-8">
+                  <p className="truncate font-semibold text-foreground">{f.name}</p>
+                  <p className="mt-0.5 text-sm capitalize text-muted">{f.type}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   );

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { API_BASE } from "@/lib/config";
 import type { Settings } from "@/lib/types";
-import { Loader2, Save, Send } from "lucide-react";
+import { Loader2, Save, Send, Mail, MessageSquare, Eye } from "lucide-react";
 
 const empty: Settings = {
   emailEnabled: false,
@@ -75,15 +75,18 @@ export default function SettingsPage() {
     return (
       <div className="flex items-center gap-2 text-muted">
         <Loader2 className="h-5 w-5 animate-spin" />
-        Loading settings…
+        <span className="text-sm">Loading settings…</span>
       </div>
     );
   }
 
+  const inputCls =
+    "w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-foreground placeholder:text-muted/60 focus:border-[rgb(var(--accent-orange))]/50 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent-orange))]/[0.08] transition";
+
   return (
     <div className="mx-auto max-w-xl space-y-8">
       <header>
-        <h1 className="font-headline text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
           Settings
         </h1>
         <p className="mt-1 text-sm text-muted">
@@ -92,117 +95,97 @@ export default function SettingsPage() {
       </header>
 
       {msg && (
-        <p className="rounded-fidelity border border-border bg-surface px-3 py-2 text-sm text-foreground">
+        <div className="flex items-center gap-2 rounded-xl border border-[rgb(var(--accent-orange))]/30 bg-[rgb(var(--accent-orange))]/[0.08] px-4 py-3 text-sm text-foreground">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[rgb(var(--accent-orange))]" />
           {msg}
-        </p>
+        </div>
       )}
 
-      <label className="flex cursor-pointer items-center gap-3">
-        <input
-          type="checkbox"
-          checked={s.showHeatmap}
-          onChange={(e) => setS({ ...s, showHeatmap: e.target.checked })}
-          className="h-4 w-4 rounded border-border"
-        />
-        <span className="text-sm text-foreground">Show heatmap overlay</span>
-      </label>
-
-      <fieldset className="space-y-4 rounded-fidelity border border-border bg-surface/70 p-4">
-        <legend className="px-1 text-sm font-medium text-foreground">Email</legend>
-        <label className="flex cursor-pointer items-center gap-3">
+      {/* ── Display ── */}
+      <section className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 backdrop-blur-xl">
+        <div className="mb-4 flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(255,107,0,0.15)] ring-1 ring-[rgba(255,107,0,0.3)]">
+            <Eye className="h-4 w-4 text-[rgb(var(--accent-orange))]" />
+          </div>
+          <h2 className="text-sm font-semibold text-foreground">Display</h2>
+        </div>
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-black/20 px-4 py-3">
+          <span className="text-sm text-foreground">Show heatmap overlay</span>
           <input
             type="checkbox"
-            checked={s.emailEnabled}
-            onChange={(e) => setS({ ...s, emailEnabled: e.target.checked })}
-            className="h-4 w-4 rounded border-border"
+            checked={s.showHeatmap}
+            onChange={(e) => setS({ ...s, showHeatmap: e.target.checked })}
+            className="h-4 w-4 rounded border-white/20 accent-[rgb(var(--accent-orange))]"
           />
-          <span className="text-sm text-foreground">Enable email alerts</span>
         </label>
-        <input
-          className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
-          placeholder="SMTP server"
-          value={s.smtpServer}
-          onChange={(e) => setS({ ...s, smtpServer: e.target.value })}
-        />
-        <input
-          className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
-          placeholder="SMTP port"
-          value={s.smtpPort}
-          onChange={(e) => setS({ ...s, smtpPort: e.target.value })}
-        />
-        <input
-          className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
-          placeholder="Sender email"
-          value={s.senderEmail}
-          onChange={(e) => setS({ ...s, senderEmail: e.target.value })}
-        />
-        <input
-          type="password"
-          className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
-          placeholder="Sender password / app password"
-          value={s.senderPassword}
-          onChange={(e) => setS({ ...s, senderPassword: e.target.value })}
-        />
-        <input
-          className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
-          placeholder="Receiver email"
-          value={s.receiverEmail}
-          onChange={(e) => setS({ ...s, receiverEmail: e.target.value })}
-        />
-      </fieldset>
+      </section>
 
-      <fieldset className="space-y-4 rounded-fidelity border border-border bg-surface/70 p-4">
-        <legend className="px-1 text-sm font-medium text-foreground">
-          Telegram
-        </legend>
-        <label className="flex cursor-pointer items-center gap-3">
-          <input
-            type="checkbox"
-            checked={s.telegramEnabled}
-            onChange={(e) => setS({ ...s, telegramEnabled: e.target.checked })}
-            className="h-4 w-4 rounded border-border"
-          />
-          <span className="text-sm text-foreground">Enable Telegram alerts</span>
-        </label>
-        <input
-          className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
-          placeholder="Bot token"
-          value={s.telegramBotToken}
-          onChange={(e) => setS({ ...s, telegramBotToken: e.target.value })}
-        />
-        <input
-          className="w-full rounded-fidelity border border-border bg-background px-3 py-2 text-sm text-foreground"
-          placeholder="Chat ID"
-          value={s.telegramChatId}
-          onChange={(e) => setS({ ...s, telegramChatId: e.target.value })}
-        />
-      </fieldset>
+      {/* ── Email ── */}
+      <section className="space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 backdrop-blur-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(255,107,0,0.15)] ring-1 ring-[rgba(255,107,0,0.3)]">
+              <Mail className="h-4 w-4 text-[rgb(var(--accent-orange))]" />
+            </div>
+            <h2 className="text-sm font-semibold text-foreground">Email alerts</h2>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={s.emailEnabled}
+              onChange={(e) => setS({ ...s, emailEnabled: e.target.checked })}
+              className="h-4 w-4 rounded border-white/20 accent-[rgb(var(--accent-orange))]"
+            />
+            Enable
+          </label>
+        </div>
+        <input className={inputCls} placeholder="SMTP server" value={s.smtpServer} onChange={(e) => setS({ ...s, smtpServer: e.target.value })} />
+        <input className={inputCls} placeholder="SMTP port" value={s.smtpPort} onChange={(e) => setS({ ...s, smtpPort: e.target.value })} />
+        <input className={inputCls} placeholder="Sender email" value={s.senderEmail} onChange={(e) => setS({ ...s, senderEmail: e.target.value })} />
+        <input type="password" className={inputCls} placeholder="Sender password / app password" value={s.senderPassword} onChange={(e) => setS({ ...s, senderPassword: e.target.value })} />
+        <input className={inputCls} placeholder="Receiver email" value={s.receiverEmail} onChange={(e) => setS({ ...s, receiverEmail: e.target.value })} />
+      </section>
+
+      {/* ── Telegram ── */}
+      <section className="space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 backdrop-blur-xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[rgba(255,107,0,0.15)] ring-1 ring-[rgba(255,107,0,0.3)]">
+              <MessageSquare className="h-4 w-4 text-[rgb(var(--accent-orange))]" />
+            </div>
+            <h2 className="text-sm font-semibold text-foreground">Telegram alerts</h2>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-muted">
+            <input
+              type="checkbox"
+              checked={s.telegramEnabled}
+              onChange={(e) => setS({ ...s, telegramEnabled: e.target.checked })}
+              className="h-4 w-4 rounded border-white/20 accent-[rgb(var(--accent-orange))]"
+            />
+            Enable
+          </label>
+        </div>
+        <input className={inputCls} placeholder="Bot token" value={s.telegramBotToken} onChange={(e) => setS({ ...s, telegramBotToken: e.target.value })} />
+        <input className={inputCls} placeholder="Chat ID" value={s.telegramChatId} onChange={(e) => setS({ ...s, telegramChatId: e.target.value })} />
+      </section>
 
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
           onClick={save}
           disabled={saving}
-          className="inline-flex items-center gap-2 rounded-fidelity bg-primary px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl bg-[rgb(var(--accent-orange))] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_20px_rgba(255,107,0,0.35)] transition hover:brightness-110 hover:shadow-[0_0_28px_rgba(255,107,0,0.5)] disabled:opacity-50 disabled:shadow-none"
         >
-          {saving ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4" />
-          )}
-          Save
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save settings
         </button>
         <button
           type="button"
           onClick={testNotifications}
           disabled={testing}
-          className="inline-flex items-center gap-2 rounded-fidelity border border-border px-4 py-2 text-sm text-foreground hover:bg-neutral/15 disabled:opacity-50"
+          className="inline-flex items-center gap-2 rounded-xl border border-white/[0.15] px-5 py-2.5 text-sm font-medium text-foreground transition hover:bg-white/[0.06] hover:border-white/25 disabled:opacity-50"
         >
-          {testing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
+          {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           Test notifications
         </button>
       </div>

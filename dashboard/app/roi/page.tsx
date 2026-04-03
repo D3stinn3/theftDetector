@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { API_BASE } from "@/lib/config";
 import { Loader2, Trash2, Upload } from "lucide-react";
 
-/** Backend video coordinates */
 const W = 1280;
 const H = 720;
 
@@ -76,7 +75,7 @@ export default function RoiPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <header>
-        <h1 className="font-headline text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
           Region of interest
         </h1>
         <p className="mt-1 text-sm text-muted">
@@ -86,7 +85,7 @@ export default function RoiPage() {
       </header>
 
       {msg && (
-        <p className="rounded-fidelity border border-border bg-surface px-3 py-2 text-sm text-foreground">
+        <p className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-3 py-2 text-sm text-foreground">
           {msg}
         </p>
       )}
@@ -103,10 +102,10 @@ export default function RoiPage() {
             role="presentation"
             onClick={onClick}
             onContextMenu={onContextMenu}
-            className="relative cursor-crosshair overflow-hidden rounded-fidelity border border-border bg-surface"
+            className="relative cursor-crosshair overflow-hidden rounded-2xl border border-white/[0.08] bg-black/40"
             style={{ aspectRatio: `${W} / ${H}` }}
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-neutral/30 to-background" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] to-transparent" />
             <svg
               className="absolute inset-0 h-full w-full"
               viewBox={`0 0 ${W} ${H}`}
@@ -115,8 +114,8 @@ export default function RoiPage() {
               {points.length > 0 && (
                 <polygon
                   points={points.map((p) => `${p[0]},${p[1]}`).join(" ")}
-                  fill="rgba(0, 253, 189, 0.14)"
-                  stroke="#00fdbd"
+                  fill="rgba(255, 107, 0, 0.12)"
+                  stroke="rgb(255, 107, 0)"
                   strokeWidth="3"
                 />
               )}
@@ -126,8 +125,8 @@ export default function RoiPage() {
                   cx={p[0]}
                   cy={p[1]}
                   r="10"
-                  fill="#ffe046"
-                  stroke="#0a0f0d"
+                  fill="rgb(255, 107, 0)"
+                  stroke="rgb(10, 12, 16)"
                   strokeWidth="2"
                 />
               ))}
@@ -141,7 +140,7 @@ export default function RoiPage() {
             <button
               type="button"
               onClick={() => setPoints([])}
-              className="inline-flex items-center gap-2 rounded-fidelity border border-border px-4 py-2 text-sm text-foreground hover:bg-neutral/15"
+              className="inline-flex items-center gap-2 rounded-xl border border-white/[0.15] px-4 py-2 text-sm font-medium text-foreground transition hover:bg-white/[0.06] hover:border-white/25"
             >
               <Trash2 className="h-4 w-4" />
               Clear
@@ -150,7 +149,7 @@ export default function RoiPage() {
               type="button"
               onClick={save}
               disabled={saving || points.length < 3}
-              className="inline-flex items-center gap-2 rounded-fidelity bg-primary px-4 py-2 text-sm font-medium text-black hover:opacity-90 disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-xl bg-[rgb(var(--accent-orange))] px-4 py-2 text-sm font-semibold text-white shadow-[0_0_20px_rgba(255,107,0,0.35)] transition hover:brightness-110 hover:shadow-[0_0_28px_rgba(255,107,0,0.5)] disabled:opacity-40 disabled:shadow-none"
             >
               {saving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -221,6 +221,9 @@ alerts/
 playbacks/
 uploads/
 
+# Node.js dependencies
+node_modules/
+
 # ML / Training artifacts
 runs/
 training_artifacts/
@@ -236,7 +239,8 @@ yolov26/yolotraining/dataset/
 # Logs
 error_log.txt
 
-# Backup files
+# Settings — contains camera credentials; copy settings.example.json to create
+settings.json
 settings.backup.*.json
 
 # Test files (local dev)

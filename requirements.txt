@@ -7,4 +7,11 @@ ultralytics
 numpy
 lapx
 requests
+pyyaml
+
+# face_recognition requires dlib.
+# On Windows, dlib needs Visual Studio C++ Build Tools before running pip install.
+# Download from: https://visualstudio.microsoft.com/visual-cpp-build-tools/
+# Then run: pip install dlib
+# Or use a pre-built wheel: pip install dlib --find-links https://github.com/z-mahmud22/Dlib_Windows_Python3.x
 face_recognition

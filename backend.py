@@ -162,7 +162,17 @@ def load_detection_models(model_name: str):
             model_obj = None
     return model_pose, model_obj, model_is_specialized
 
-# ... (Load settings code same as before) ...
+SETTINGS_EXAMPLE_FILE = "settings.example.json"
+
+# Auto-create settings.json from example if it doesn't exist
+if not os.path.exists(SETTINGS_FILE):
+    if os.path.exists(SETTINGS_EXAMPLE_FILE):
+        import shutil
+        shutil.copy(SETTINGS_EXAMPLE_FILE, SETTINGS_FILE)
+        print(f"[SETUP] Created {SETTINGS_FILE} from {SETTINGS_EXAMPLE_FILE}. Configure your cameras in {SETTINGS_FILE}.")
+    else:
+        print(f"[SETUP] No {SETTINGS_FILE} found. Using defaults.")
+
 try:
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r") as f:
@@ -246,6 +256,10 @@ load_known_faces()
 
 # --- API Endpoints ---
 # ... (Keep existing settings/roi/history endpoints) ...
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 @app.post("/faces/register")
 async def register_face(file: UploadFile = File(...), name: str = Form(...), type: str = Form("blacklist")):

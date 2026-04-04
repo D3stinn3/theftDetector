@@ -26,9 +26,10 @@ built with Next.js, the dashboard offers a centralized control room experience:
 
 ### 4. Alert History & Evidence
 ![Alert History](docs/alert_history.png)
-*   **Event Logging:** Every detection is saved to a local SQLite database with a timestamp, alert type, and confidence score.
-*   **Snapshot Capture:** High-resolution images of the event are automatically saved for evidence.
-*   **History Viewer:** Browse past alerts, view snapshots, and export data directly from the interface.
+
+*   **Event Logging:** Every detection is saved to a local SQLite database with a timestamp, alert type, and snapshot path.
+*   **Snapshot Capture:** JPEG images of the event are automatically saved to the `alerts/` directory for evidence.
+*   **History Viewer:** Browse past alerts and view snapshots directly from the interface.
 
 
 
@@ -42,13 +43,13 @@ Stay informed even when away from the desk:
 ### 6. Customizable Security Zones
 
 *   **Region of Interest (ROI):** Users can draw custom polygons on the camera feed to define sensitive areas (e.g., cash registers, high-value shelves).
-*   **Zone-Specific Rules:** Detection sensitivity can be adjusted based on whether a person is inside or outside these zones.
+*   **Zone-Specific Triggers:** Loitering and reaching detections are only fired when a person is inside a defined ROI polygon.
 
 
 
 ## Technical Architecture
 
-*   **Backend:** Python, FastAPI, OpenCV, Ultralytics YOLOv8, Face Recognition, Albumentations
+*   **Backend:** Python, FastAPI, OpenCV, Ultralytics YOLOv8, Face Recognition, LAPX
 *   **Frontend:** Next.js 14, React, Tailwind CSS, Recharts, Lucide React
 *   **Database:** SQLite (Lightweight, local storage for events and faces)
 *   **Communication:** WebSockets (Real-time data), SMTP (Email), HTTPS (Telegram API)
@@ -56,50 +57,122 @@ Stay informed even when away from the desk:
 ## Installation Guide
 
 ### Prerequisites
-*   Python 3.9 or higher
-*   Node.js (LTS version)
-*   NVIDIA GPU with CUDA (Recommended for real-time performance)
 
-### 1. Backend Configuration
-Clone the repository and install the required Python packages:
+| Requirement | Version | Notes |
+| --- | --- | --- |
+| Python | 3.9+ | [python.org](https://www.python.org/downloads/) — check "Add Python to PATH" on Windows |
+| Node.js | 18.17.0 LTS+ | [nodejs.org](https://nodejs.org/) |
+| NVIDIA GPU + CUDA | Optional | CPU works but is slower for real-time streams |
+
+> **Windows only — `face_recognition` requires `dlib`**, which needs Visual Studio C++ Build Tools.
+> Download from [visualstudio.microsoft.com/visual-cpp-build-tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) and install before running `pip install`.
+
+---
+
+### 1. Clone the repository
 
 ```bash
-git clone https://github.com/Start-Up-Vahap/Theft-Detection.git
-cd Theft-Detection
+git clone https://github.com/D3stinn3/theftDetector.git
+cd theftDetector
+```
+
+### 2. Install Python dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-If you have a specialized model (shoplifting.pt), place it in the root directory. Otherwise, the system defaults to the standard YOLOv8 model with behavior logic.
+### 3. Configure camera sources
 
-### 2. Dashboard Setup
-Navigate to the dashboard directory and install dependencies:
+`settings.json` is not included in the repository (it contains credentials). Copy the example file and edit it with your camera details:
+
+```bash
+# Windows
+copy settings.example.json settings.json
+
+# macOS / Linux
+cp settings.example.json settings.json
+```
+
+Edit `settings.json` and replace the `cameraSources` entries with your RTSP URLs or USB camera indices (`"0"`, `"1"`, etc.).
+
+### 4. Configure the frontend environment
+
+```bash
+# Windows
+copy dashboard\.env.example dashboard\.env.local
+
+# macOS / Linux
+cp dashboard/.env.example dashboard/.env.local
+```
+
+If your backend runs on a different host or port, edit `NEXT_PUBLIC_API_URL` in `dashboard/.env.local` accordingly.
+
+### 5. Install frontend dependencies
 
 ```bash
 cd dashboard
 npm install
+cd ..
 ```
+
+### 6. (Optional) Specialized detection model
+
+If you have a `shoplifting.pt` model, place it in the project root directory. The system will use it automatically. Without it, the system falls back to standard YOLOv8 with behaviour-based detection logic.
+
+---
 
 ## Usage
 
-### Auto-Start
-Simply run the helper script to launch both services:
-```bash
+### Quick Start (recommended)
+
+**Windows:**
+
+```bat
 start_system.bat
 ```
 
-### Manual Startup
-**Start Backend API:**
+**macOS / Linux:**
 ```bash
-py backend.py
+chmod +x start_system.sh
+./start_system.sh
 ```
 
-**Start Frontend UI:**
+Both scripts:
+
+* Check Python and Node.js are installed
+* Auto-create `settings.json` and `.env.local` from examples if missing
+* Auto-install frontend dependencies if `node_modules` is absent
+* Wait for each service to be healthy before opening the browser
+* Print a clear error message if anything fails to start
+
+### Manual Startup
+
+**Backend:**
+```bash
+# Windows
+py backend.py
+
+# macOS / Linux
+python3 backend.py
+```
+
+**Frontend** (in a separate terminal):
 ```bash
 cd dashboard
 npm run dev
 ```
 
 Open your browser and navigate to `http://localhost:3000`.
+
+### API Health Check
+
+The backend exposes a health endpoint you can use to verify it is running:
+
+```bash
+curl http://127.0.0.1:8000/health
+# → {"status": "ok"}
+```
 
 ## Contributing 
 
@@ -112,7 +185,3 @@ Open your browser and navigate to `http://localhost:3000`.
 ## License 
 
 Distributed under the MIT License. See `LICENSE` for more information.
-
-____________________________________________________________________
-
-*Developer: Abdulvahap Öğüt*

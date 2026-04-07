@@ -15,5 +15,8 @@
             "name": "USB Webcam",
             "source": "0"
         }
-    ]
+    ],
+    "activeDetectionModel": "yolov8",
+    "activeObjectWeightsYolov8": "",
+    "activeObjectWeightsYolov26": ""
 }

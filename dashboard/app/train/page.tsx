@@ -22,7 +22,10 @@ export default function TrainPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const hasActiveJob = useMemo(
-    () => jobs.some((job) => job.status === "queued" || job.status === "running"),
+    () =>
+      jobs.some((job) =>
+        ["queued", "running", "stopping"].includes(job.status)
+      ),
     [jobs]
   );
 

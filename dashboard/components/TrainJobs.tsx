@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { API_BASE } from "@/lib/config";
 import type { TrainingArtifact, TrainingJob, TrainingLog } from "@/lib/types";
-import { Loader2, Play, RefreshCw, ShieldCheck, Square } from "lucide-react";
+import { Loader2, Play, RefreshCw, ShieldCheck, Square, Trash2 } from "lucide-react";
 
 type Props = {
   jobs: TrainingJob[];
@@ -24,7 +24,9 @@ export default function TrainJobs({
   onRefresh,
   onMessage,
 }: Props) {
-  const [busy, setBusy] = useState<"refresh" | "cancel" | "promote" | "resume" | null>(null);
+  const [busy, setBusy] = useState<
+    "refresh" | "cancel" | "promote" | "resume" | "delete" | "removeQueue" | null
+  >(null);
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === selectedJobId) ?? null,
@@ -65,7 +67,11 @@ export default function TrainJobs({
   async function promoteArtifact(artifactId: string) {
     setBusy("promote");
     try {
-      const r = await fetch(`${API_BASE}/training/artifacts/${artifactId}/promote`, { method: "POST" });
+      const r = await fetch(`${API_BASE}/training/artifacts/${artifactId}/promote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       const j = await r.json();
       onMessage(j?.message ?? (r.ok ? "Artifact promoted." : "Promotion failed."));
       await onRefresh();
@@ -75,6 +81,43 @@ export default function TrainJobs({
       setBusy(null);
     }
   }
+
+  async function removeQueuedJob() {
+    if (!selectedJob || selectedJob.status !== "queued") return;
+    setBusy("removeQueue");
+    try {
+      const r = await fetch(`${API_BASE}/training/jobs/${selectedJob.id}`, { method: "DELETE" });
+      const j = await r.json();
+      onMessage(j?.message ?? (r.ok ? "Removed from queue." : "Remove failed."));
+      await onRefresh();
+    } catch {
+      onMessage("Network error while removing job.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function deleteJobRecord() {
+    if (!selectedJob) return;
+    const deletable = ["completed", "failed", "cancelled", "orphaned"].includes(selectedJob.status);
+    if (!deletable) return;
+    setBusy("delete");
+    try {
+      const r = await fetch(`${API_BASE}/training/jobs/${selectedJob.id}`, { method: "DELETE" });
+      const j = await r.json();
+      onMessage(j?.message ?? (r.ok ? "Job deleted." : "Delete failed."));
+      await onRefresh();
+    } catch {
+      onMessage("Network error while deleting job.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const canRemoveFromQueue = selectedJob?.status === "queued";
+  const canDeleteRecord =
+    selectedJob &&
+    ["completed", "failed", "cancelled", "orphaned"].includes(selectedJob.status);
 
   return (
     <section className="space-y-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 backdrop-blur-xl">
@@ -116,12 +159,36 @@ export default function TrainJobs({
             disabled={
               busy !== null ||
               !selectedJob ||
-              (selectedJob.status !== "cancelled" && selectedJob.status !== "failed")
+              !["cancelled", "failed", "orphaned"].includes(selectedJob.status)
             }
             className="inline-flex items-center gap-2 rounded-xl border border-white/[0.15] px-3 py-2 text-sm text-foreground transition hover:bg-white/[0.06] hover:border-white/25 disabled:opacity-50"
           >
             {busy === "resume" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             Resume selected
+          </button>
+          <button
+            type="button"
+            onClick={removeQueuedJob}
+            disabled={busy !== null || !canRemoveFromQueue}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-900/50 px-3 py-2 text-sm text-amber-200 transition hover:bg-amber-950/30 disabled:opacity-50"
+            title="Delete this queued job without running it"
+          >
+            {busy === "removeQueue" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Remove from queue
+          </button>
+          <button
+            type="button"
+            onClick={deleteJobRecord}
+            disabled={busy !== null || !canDeleteRecord}
+            className="inline-flex items-center gap-2 rounded-xl border border-white/[0.15] px-3 py-2 text-sm text-muted transition hover:bg-white/[0.06] hover:border-white/25 hover:text-foreground disabled:opacity-50"
+            title="Delete finished job from the list"
+          >
+            {busy === "delete" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Delete record
           </button>
         </div>
       </div>
@@ -167,8 +234,10 @@ export default function TrainJobs({
                     </div>
                     <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
                       <div
-                        className="progress-bar h-full rounded-full bg-[rgb(var(--accent-orange))]"
-                        data-pct={Math.round((job.progress ?? 0) * 100)}
+                        className="h-full rounded-full bg-[rgb(var(--accent-orange))] transition-[width] duration-300"
+                        style={{
+                          width: `${Math.min(100, Math.round((job.progress ?? 0) * 100))}%`,
+                        }}
                       />
                     </div>
                   </button>

@@ -31,6 +31,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 import requests
+import traceback
 from pydantic import BaseModel
 import sqlite3
 import pickle
@@ -44,6 +45,10 @@ except ImportError:
     logger.warning("face_recognition not installed. Face recognition disabled.")
 
 def startup_runtime():
+    try:
+        reconcile_stale_training_jobs()
+    except Exception as exc:
+        logger.warning(f"Training job reconciliation skipped: {exc}")
     try:
         startup_sources = [{"name": c.name, "source": c.source} for c in getattr(current_settings, "cameraSources", [])]
     except Exception:
@@ -135,6 +140,9 @@ class SettingsModel(BaseModel):
     showHeatmap: bool = False
     cameraSources: list[CameraSourceModel] = []
     activeDetectionModel: str = "yolov8"
+    # When set to an existing .pt path, inference uses these weights for the object detector.
+    activeObjectWeightsYolov8: str = ""
+    activeObjectWeightsYolov26: str = ""
 
 # --- Model Configurations ---
 MODEL_CONFIGS: dict = {
@@ -152,10 +160,48 @@ MODEL_CONFIGS: dict = {
     },
 }
 
+MODELS_DIR = "models"
+if not os.path.exists(MODELS_DIR):
+    os.makedirs(MODELS_DIR, exist_ok=True)
+
+
+def get_object_weights_override_path(model_name: str) -> str | None:
+    """Return promoted/custom object-detector weights path if configured and valid."""
+    try:
+        key = (model_name or "yolov8").strip().lower()
+        if key == "yolov26":
+            p = (getattr(current_settings, "activeObjectWeightsYolov26", "") or "").strip()
+        else:
+            p = (getattr(current_settings, "activeObjectWeightsYolov8", "") or "").strip()
+        if p and os.path.isfile(p):
+            return p
+    except Exception:
+        pass
+    return None
+
+
+def detection_models_signature(model_name: str) -> tuple[str, str]:
+    """Signature for hot-reload when family or promoted weights path changes."""
+    fam = (model_name or "yolov8").strip().lower()
+    if fam not in MODEL_CONFIGS:
+        fam = "yolov8"
+    ov = get_object_weights_override_path(fam) or ""
+    return (fam, ov)
+
+
 def load_detection_models(model_name: str):
     """Load pose and object detection models for the given model family."""
     cfg = MODEL_CONFIGS.get(model_name, MODEL_CONFIGS["yolov8"])
     model_pose = YOLO(cfg["pose"])
+    override = get_object_weights_override_path(model_name)
+    if override:
+        try:
+            model_obj = YOLO(override)
+            logger.info(f"Using custom/promoted object weights: {override}")
+            return model_pose, model_obj, False
+        except Exception as exc:
+            logger.warning(f"Failed to load custom object weights ({override}), using defaults: {exc}")
+
     model_is_specialized = False
     model_obj = None
     try:
@@ -341,7 +387,7 @@ async def save_settings(settings: SettingsModel):
     current_settings = settings
     roi_points = settings.roiPoints # Update global ROI
     with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings.dict(), f, indent=4)
+        json.dump(settings.model_dump(), f, indent=4)
     return {"status": "success", "message": "Settings saved"}
 
 @app.post("/roi")
@@ -351,7 +397,7 @@ async def save_roi(data: dict):
         roi_points = data["points"]
         current_settings.roiPoints = roi_points
         with open(SETTINGS_FILE, "w") as f:
-            json.dump(current_settings.dict(), f, indent=4)
+            json.dump(current_settings.model_dump(), f, indent=4)
         logger.info(f"ROI updated: {roi_points}")
         return {"status": "success"}
     return {"status": "error"}
@@ -715,6 +761,11 @@ class TrainingArtifactResponse(BaseModel):
     promoted: bool = False
     metrics: dict | None = None
 
+
+class PromoteArtifactBody(BaseModel):
+    """Optional hint when promoting weights (inferred from training job if omitted)."""
+    modelFamily: str | None = None
+
 class TrainingLogResponse(BaseModel):
     id: str
     jobId: str
@@ -982,6 +1033,93 @@ def get_latest_training_artifact(job_id: str, kind: str) -> sqlite3.Row | None:
     conn.close()
     return row
 
+
+def reconcile_stale_training_jobs():
+    """Mark jobs that were running/stopping when the process died as orphaned."""
+    now = datetime.now().isoformat()
+    conn = db_connect(row_factory=True)
+    c = conn.cursor()
+    c.execute("SELECT id FROM training_jobs WHERE status IN ('running', 'stopping')")
+    ids = [r["id"] for r in c.fetchall()]
+    conn.close()
+    for jid in ids:
+        update_training_job(
+            jid,
+            status="orphaned",
+            phase="Interrupted",
+            finished_at=now,
+            error="Backend restarted while this job was active. Start a new job or resume from a checkpoint if available.",
+            cancel_requested=0,
+        )
+        append_training_log(jid, "WARN", "Job marked orphaned after backend restart.")
+    if ids:
+        logger.warning("Reconciled %d training job(s) that were active before restart.", len(ids))
+
+
+def claim_next_training_job() -> sqlite3.Row | None:
+    """Atomically claim the oldest queued job as running (single-worker safe)."""
+    conn = db_connect(row_factory=True)
+    c = conn.cursor()
+    c.execute("SELECT id FROM training_jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1")
+    peek = c.fetchone()
+    if not peek:
+        conn.close()
+        return None
+    job_id = peek["id"]
+    now = datetime.now().isoformat()
+    c.execute(
+        """UPDATE training_jobs SET status='running', progress=0.05, phase='Preparing dataset',
+           started_at=?, error=NULL WHERE id=? AND status='queued'""",
+        (now, job_id),
+    )
+    if c.rowcount != 1:
+        conn.close()
+        return None
+    c.execute(
+        "SELECT id, dataset_id, base_model, task_type, params_json, device FROM training_jobs WHERE id=?",
+        (job_id,),
+    )
+    row = c.fetchone()
+    conn.commit()
+    conn.close()
+    return row
+
+
+def validate_base_model_for_training(base_model: str) -> None:
+    bm = (base_model or "").strip()
+    if not bm:
+        raise HTTPException(status_code=400, detail="baseModel is required.")
+    if os.path.isfile(bm):
+        pass
+    elif any(sep in bm for sep in ("/", "\\")) or (len(bm) > 2 and bm[1] == ":"):
+        raise HTTPException(status_code=400, detail=f"Base model file not found: {bm}")
+    try:
+        _ = YOLO(bm)
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot load base model '{bm}'. Use a valid Ultralytics model name or an existing .pt file. ({e})",
+        )
+
+
+def _safe_unlink_training_artifact_path(path: str | None) -> None:
+    if not path or not os.path.isfile(path):
+        return
+    ap = os.path.normcase(os.path.abspath(path))
+    roots = [
+        os.path.normcase(os.path.abspath(TRAINING_ARTIFACTS_DIR)),
+        os.path.normcase(os.path.abspath(TRAINING_WORKSPACE_DIR)),
+        os.path.normcase(os.path.abspath(TRAINING_UPLOADS_DIR)),
+    ]
+    for root in roots:
+        if ap.startswith(root + os.sep) or ap == root:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            return
+
+
 class TrainingWorker:
     def __init__(self):
         self.thread = None
@@ -1042,35 +1180,17 @@ class TrainingWorker:
 
     def run(self):
         while not self.stop_event.is_set():
-            job = self._next_job()
+            job = claim_next_training_job()
             if not job:
                 self.wake_event.wait(timeout=2.0)
                 self.wake_event.clear()
                 continue
             self._execute_job(job)
 
-    def _next_job(self):
-        conn = db_connect(row_factory=True)
-        c = conn.cursor()
-        c.execute(
-            "SELECT id, dataset_id, base_model, task_type, params_json, device FROM training_jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"
-        )
-        row = c.fetchone()
-        conn.close()
-        return row
-
     def _execute_job(self, row):
         job_id = row["id"]
         params = json.loads(row["params_json"]) if row["params_json"] else {}
         self.active_job_id = job_id
-        update_training_job(
-            job_id,
-            status="running",
-            progress=0.05,
-            phase="Preparing dataset",
-            started_at=datetime.now().isoformat(),
-            error=None,
-        )
         append_training_log(job_id, "INFO", "Training job started.")
 
         dataset = get_training_dataset_or_404(row["dataset_id"])
@@ -1140,7 +1260,7 @@ class TrainingWorker:
                 "val": True,
             }
             if resume_checkpoint:
-                train_kwargs = {"resume": True}
+                train_kwargs["resume"] = True
 
             results = model.train(**train_kwargs)
 
@@ -1204,6 +1324,7 @@ class TrainingWorker:
             )
             append_training_log(job_id, "INFO", f"Training completed. Artifact saved to {promoted_path}.")
         except Exception as e:
+            tb = traceback.format_exc()
             update_training_job(
                 job_id,
                 status="failed",
@@ -1214,6 +1335,7 @@ class TrainingWorker:
                 cancel_requested=0,
             )
             append_training_log(job_id, "ERROR", str(e))
+            append_training_log(job_id, "ERROR", tb)
         finally:
             self.active_job_id = None
             self.active_model = None
@@ -1561,6 +1683,7 @@ async def create_training_job(payload: CreateTrainingJobInput):
             raise HTTPException(status_code=400, detail=inspection.message or f"Dataset is not ready for training: {dataset['status']}")
     if dataset["status"] not in ("ready", "validated"):
         raise HTTPException(status_code=400, detail=f"Dataset is not ready for training: {dataset['status']}")
+    validate_base_model_for_training(payload.baseModel)
     resolved_device = require_usable_training_device(payload.device)
 
     job_id = str(uuid.uuid4())
@@ -1647,6 +1770,31 @@ async def cancel_training_job(job_id: str):
     return {"message": "Stop requested. Training will stop after the current safe checkpoint."}
 
 
+@app.delete("/training/jobs/{job_id}")
+async def delete_training_job(job_id: str):
+    row = get_training_job_row(job_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Training job not found")
+    st = row["status"]
+    if st in ("running", "stopping"):
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete a job that is running or stopping. Cancel it first, then delete the record.",
+        )
+    conn = db_connect()
+    c = conn.cursor()
+    c.execute("SELECT path FROM training_artifacts WHERE job_id = ?", (job_id,))
+    paths = [r[0] for r in c.fetchall()]
+    c.execute("DELETE FROM training_logs WHERE job_id = ?", (job_id,))
+    c.execute("DELETE FROM training_artifacts WHERE job_id = ?", (job_id,))
+    c.execute("DELETE FROM training_jobs WHERE id = ?", (job_id,))
+    conn.commit()
+    conn.close()
+    for p in paths:
+        _safe_unlink_training_artifact_path(p)
+    return {"message": "Job deleted."}
+
+
 @app.post("/training/jobs/{job_id}/resume", response_model=ResumeTrainingJobResponse)
 async def resume_training_job(job_id: str):
     row = get_training_job_row(job_id)
@@ -1698,7 +1846,8 @@ async def list_training_artifacts():
     return [TrainingArtifactResponse(**row_to_training_artifact(row)) for row in rows]
 
 @app.post("/training/artifacts/{artifact_id}/promote")
-async def promote_training_artifact(artifact_id: str):
+async def promote_training_artifact(artifact_id: str, body: PromoteArtifactBody = PromoteArtifactBody()):
+    global current_settings
     conn = db_connect(row_factory=True)
     c = conn.cursor()
     c.execute("SELECT * FROM training_artifacts WHERE id = ?", (artifact_id,))
@@ -1706,11 +1855,44 @@ async def promote_training_artifact(artifact_id: str):
     if not row:
         conn.close()
         raise HTTPException(status_code=404, detail="Artifact not found")
+    src = row["path"]
+    if not src or not os.path.isfile(src):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Artifact file is missing on disk.")
+
+    job_row = get_training_job_row(row["job_id"])
+    family = (body.modelFamily or "").strip().lower()
+    if family not in ("yolov8", "yolov26"):
+        bm = (job_row["base_model"] or "").lower() if job_row else ""
+        family = "yolov26" if "yolo26" in bm or "yolov26" in bm else "yolov8"
+
+    dest = os.path.abspath(os.path.join(MODELS_DIR, f"active_object_{family}.pt"))
+    os.makedirs(MODELS_DIR, exist_ok=True)
+    shutil.copy2(src, dest)
+
+    if family == "yolov26":
+        current_settings.activeObjectWeightsYolov26 = dest
+    else:
+        current_settings.activeObjectWeightsYolov8 = dest
+
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(current_settings.model_dump(), f, indent=4)
+    except Exception as exc:
+        conn.close()
+        raise HTTPException(status_code=500, detail=f"Failed to save settings: {exc}") from exc
+
     c.execute("UPDATE training_artifacts SET promoted = 0")
     c.execute("UPDATE training_artifacts SET promoted = 1 WHERE id = ?", (artifact_id,))
     conn.commit()
     conn.close()
-    return {"message": "Artifact marked as promoted candidate."}
+    logger.info("Promoted training artifact %s → %s (family=%s)", artifact_id, dest, family)
+    return {
+        "message": f"Artifact promoted. Object detector for {family} now uses {dest}. "
+        "Live detection reloads on the next cycle.",
+        "path": dest,
+        "modelFamily": family,
+    }
 
 @app.post("/cameras")
 async def add_new_camera(cam: CameraInput):
@@ -1770,7 +1952,7 @@ async def configure_startup_cameras(cfg: CameraConfigInput):
     current_settings.cameraSources = cfg.cameraSources
     try:
         with open(SETTINGS_FILE, "w") as f:
-            json.dump(current_settings.dict(), f, indent=4)
+            json.dump(current_settings.model_dump(), f, indent=4)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to write settings: {e}")
 
@@ -1937,10 +2119,10 @@ def video_loop():
 
     logger.info("Starting video loop...")
 
-    _loaded_model_name = current_settings.activeDetectionModel
+    _loaded_sig = detection_models_signature(current_settings.activeDetectionModel)
     try:
-        logger.info(f"Loading models for: {_loaded_model_name}")
-        model_pose, model_obj, model_is_specialized = load_detection_models(_loaded_model_name)
+        logger.info(f"Loading models for: {_loaded_sig[0]} (override={_loaded_sig[1] or 'none'})")
+        model_pose, model_obj, model_is_specialized = load_detection_models(_loaded_sig[0])
         logger.info("Models ready.")
     except Exception as e:
         logger.critical(f"Model load failed: {e}")
@@ -1953,16 +2135,18 @@ def video_loop():
     cv2.putText(no_signal_frame, "NO SIGNAL", (400, 360), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 3)
 
     while True:
-        # Hot-swap models when activeDetectionModel setting changes
-        desired_model = current_settings.activeDetectionModel
-        if desired_model != _loaded_model_name:
+        # Hot-swap when detection family or promoted object weights change
+        desired_sig = detection_models_signature(current_settings.activeDetectionModel)
+        if desired_sig != _loaded_sig:
             try:
-                logger.info(f"Switching detection model: {_loaded_model_name} → {desired_model}")
-                model_pose, model_obj, model_is_specialized = load_detection_models(desired_model)
-                _loaded_model_name = desired_model
-                logger.info(f"Model switched to: {desired_model}")
+                logger.info(
+                    f"Switching detection models: {_loaded_sig} → {desired_sig}"
+                )
+                model_pose, model_obj, model_is_specialized = load_detection_models(desired_sig[0])
+                _loaded_sig = desired_sig
+                logger.info("Detection models reloaded.")
             except Exception as _e:
-                logger.error(f"Model switch failed, keeping {_loaded_model_name}: {_e}")
+                logger.error(f"Model switch failed, keeping previous weights: {_e}")
 
         try:
             with camera_manager.lock:

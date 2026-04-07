@@ -44,6 +44,9 @@ export interface Settings {
   showHeatmap: boolean;
   cameraSources: CameraSource[];
   activeDetectionModel: "yolov8" | "yolov26";
+  /** Absolute path to promoted custom .pt for the object detector; empty = use defaults */
+  activeObjectWeightsYolov8?: string;
+  activeObjectWeightsYolov26?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -71,7 +74,7 @@ export interface TrainingJob {
   datasetName: string | null;
   baseModel: string;
   taskType: string;
-  status: "queued" | "running" | "stopping" | "completed" | "failed" | "cancelled";
+  status: "queued" | "running" | "stopping" | "completed" | "failed" | "cancelled" | "orphaned";
   progress: number;
   phase: string;
   device: string;

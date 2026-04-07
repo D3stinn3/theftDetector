@@ -19,6 +19,8 @@ const empty: Settings = {
   showHeatmap: true,
   cameraSources: [],
   activeDetectionModel: "yolov8",
+  activeObjectWeightsYolov8: "",
+  activeObjectWeightsYolov26: "",
 };
 
 export default function SettingsPage() {
@@ -151,6 +153,27 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
+        <p className="text-xs text-muted">
+          Custom object weights (from Train → Promote) override the default detector for that family. Clear the field to use bundled weights again.
+        </p>
+        <label className="block space-y-1">
+          <span className="text-xs text-muted">YOLOv8 — custom object .pt path</span>
+          <input
+            className={inputCls}
+            placeholder="Leave empty for default"
+            value={s.activeObjectWeightsYolov8 ?? ""}
+            onChange={(e) => setS({ ...s, activeObjectWeightsYolov8: e.target.value })}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-xs text-muted">YOLOv26 — custom object .pt path</span>
+          <input
+            className={inputCls}
+            placeholder="Leave empty for default"
+            value={s.activeObjectWeightsYolov26 ?? ""}
+            onChange={(e) => setS({ ...s, activeObjectWeightsYolov26: e.target.value })}
+          />
+        </label>
       </section>
 
       {/* ── Email ── */}

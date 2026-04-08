@@ -40,12 +40,13 @@ class RoiController:
     @http_get("")
     def get_roi(self):
         settings_data = load_runtime_settings()
-        return {"roiPoints": settings_data.get("roiPoints", [])}
+        points = settings_data.get("roiPoints", [])
+        return {"points": points, "roiPoints": points}
 
     @http_post("", response=MessageResponse)
     def set_roi(self, payload: dict):
         settings_data = load_runtime_settings()
-        settings_data["roiPoints"] = payload.get("roiPoints", [])
+        settings_data["roiPoints"] = payload.get("roiPoints", payload.get("points", []))
         save_runtime_settings(settings_data)
         return MessageResponse(message="ROI points updated.")
 

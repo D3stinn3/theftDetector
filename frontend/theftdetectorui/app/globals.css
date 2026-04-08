@@ -1,9 +1,16 @@
 @import "tailwindcss";
 
 :root {
+  --primary: 255 107 0;
+  --secondary: 0 255 190;
+  --tertiary: 255 77 0;
+  --neutral: 90 100 120;
+  --accent-orange: 255 107 0;
   --background: 10 12 16;
   --foreground: 220 222 232;
   --muted: 110 120 145;
+  --surface: 18 20 26;
+  --border: 45 50 70;
 }
 
 @theme inline {
@@ -20,4 +27,48 @@ body {
 
 .text-muted {
   color: rgb(var(--muted));
+}
+
+@layer utilities {
+  .app-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 900px 650px at 15% 8%, rgba(59, 130, 246, 0.13) 0%, transparent 60%),
+      radial-gradient(ellipse 700px 550px at 78% 18%, rgba(139, 92, 246, 0.1) 0%, transparent 55%),
+      radial-gradient(ellipse 750px 650px at 62% 88%, rgba(255, 107, 0, 0.09) 0%, transparent 55%),
+      rgb(var(--background));
+  }
+
+  .glass {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    backdrop-filter: blur(28px) saturate(1.4);
+    -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  }
+
+  .glass-edge {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .glass-edge::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, transparent 45%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 30%);
+    mix-blend-mode: overlay;
+    opacity: 0.85;
+  }
+
+  .glass-shadow {
+    box-shadow:
+      0 32px 80px rgba(0, 0, 0, 0.55),
+      0 1px 0 rgba(255, 255, 255, 0.07) inset;
+  }
 }

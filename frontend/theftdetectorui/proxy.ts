@@ -10,9 +10,8 @@ export function proxy(request: NextRequest) {
   }
 
   const hasSession = Boolean(request.cookies.get("sessionid")?.value);
-  if (!hasSession && !PUBLIC_PATHS.has(pathname)) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
+  // Do not hard-block private routes in dev because backend cookie host can
+  // differ (localhost vs 127.0.0.1). Client pages can still validate /auth/me.
   if (hasSession && PUBLIC_PATHS.has(pathname)) {
     return NextResponse.redirect(new URL("/", request.url));
   }

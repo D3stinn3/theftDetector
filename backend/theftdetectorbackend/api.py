@@ -4,7 +4,7 @@ from alerts.api import HistoryController
 from cameras.api import CamerasController
 from core.api import HealthController, RoiController, SettingsController, StatsController
 from faces.api import FacesController
-from training.api import TrainingController
+from training.api import PlaybackController, TrainingController
 from users.api import AuthController
 
 
@@ -23,5 +23,6 @@ api.register_controllers(
     HistoryController,
     FacesController,
     CamerasController,
+    PlaybackController,
     TrainingController,
 )

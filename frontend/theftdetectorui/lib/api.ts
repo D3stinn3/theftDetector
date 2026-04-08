@@ -1,5 +1,13 @@
 import { API_BASE } from "@/lib/config";
-import type { FaceRow, HistoryRow, Settings } from "@/lib/types";
+import type {
+  FaceRow,
+  HistoryRow,
+  TrainingArtifact,
+  TrainingDataset,
+  TrainingDeviceCapabilities,
+  TrainingJob,
+  TrainingLog,
+} from "@/lib/types";
 
 async function apiFetch<T>(path: string, fallback: T): Promise<T> {
   try {
@@ -23,19 +31,29 @@ export async function fetchHistory(): Promise<HistoryRow[]> {
   return apiFetch<HistoryRow[]>("/history", []);
 }
 
-export async function fetchSettings(): Promise<Settings> {
-  return apiFetch<Settings>("/settings", {
-    emailEnabled: false,
-    smtpServer: "",
-    smtpPort: "",
-    senderEmail: "",
-    senderPassword: "",
-    receiverEmail: "",
-    telegramEnabled: false,
-    telegramBotToken: "",
-    telegramChatId: "",
-    roiPoints: [],
-    showHeatmap: true,
-    cameraSources: [],
-  });
+export async function fetchTrainingDatasets(): Promise<TrainingDataset[]> {
+  return apiFetch<TrainingDataset[]>("/training/datasets", []);
+}
+
+export async function fetchTrainingJobs(): Promise<TrainingJob[]> {
+  return apiFetch<TrainingJob[]>("/training/jobs", []);
+}
+
+export async function fetchTrainingLogs(jobId: string): Promise<TrainingLog[]> {
+  return apiFetch<TrainingLog[]>(`/training/jobs/${jobId}/logs`, []);
+}
+
+export async function fetchTrainingArtifacts(): Promise<TrainingArtifact[]> {
+  return apiFetch<TrainingArtifact[]>("/training/artifacts", []);
+}
+
+const defaultDeviceCapabilities: TrainingDeviceCapabilities = {
+  defaultDevice: "cpu",
+  devices: [{ id: "cpu", label: "CPU", available: true }],
+  cudaHealthy: false,
+  diagnostic: null,
+};
+
+export async function fetchTrainingDevices(): Promise<TrainingDeviceCapabilities> {
+  return apiFetch<TrainingDeviceCapabilities>("/training/devices", defaultDeviceCapabilities);
 }

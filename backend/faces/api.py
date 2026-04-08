@@ -5,7 +5,6 @@ from ninja import File, Form
 from ninja.files import UploadedFile
 from ninja_extra import api_controller, http_delete, http_get, http_post
 
-from core.legacy import legacy_db_rows, use_legacy_reads
 from django.conf import settings
 from faces.models import FaceEntry
 
@@ -18,13 +17,8 @@ FACES_DIR.mkdir(parents=True, exist_ok=True)
 class FacesController:
     @http_get("")
     def list_faces(self):
-        if use_legacy_reads():
-            return legacy_db_rows("SELECT id, name, type FROM faces ORDER BY id DESC")
-        try:
-            rows = FaceEntry.objects.all().order_by("-created_at")
-            return [{"id": r.id, "name": r.name, "type": r.type} for r in rows]
-        except Exception:
-            return legacy_db_rows("SELECT id, name, type FROM faces ORDER BY id DESC")
+        rows = FaceEntry.objects.all().order_by("-created_at")
+        return [{"id": r.id, "name": r.name, "type": r.type} for r in rows]
 
     @http_post("/register")
     def register_face(

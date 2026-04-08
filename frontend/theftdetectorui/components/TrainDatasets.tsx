@@ -32,9 +32,17 @@ export default function TrainDatasets({ datasets, selectedDatasetId, onSelectDat
       fd.append("name", datasetName || datasetFile.name.replace(/\.[^.]+$/, ""));
       fd.append("taskType", taskType);
       fd.append("notes", notes);
-      const r = await fetch(`${API_BASE}/training/datasets/upload`, { method: "POST", body: fd });
-      const j = await r.json();
-      if (!r.ok) { onMessage(j?.detail ?? "Upload failed."); return; }
+      const r = await fetch(`${API_BASE}/training/datasets/upload`, { method: "POST", body: fd, credentials: "include" });
+      let j: any = null;
+      try {
+        j = await r.json();
+      } catch {
+        j = null;
+      }
+      if (!r.ok) {
+        onMessage(j?.message ?? j?.detail ?? `Upload failed (HTTP ${r.status}).`);
+        return;
+      }
       onMessage(`Dataset uploaded: ${j.name}`);
       setDatasetFile(null);
       setDatasetName("");
@@ -55,6 +63,7 @@ export default function TrainDatasets({ datasets, selectedDatasetId, onSelectDat
       const r = await fetch(`${API_BASE}/training/datasets/register-path`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ path: localPath.trim(), name: datasetName || localPath.trim().split("/").filter(Boolean).pop() || "Dataset", taskType, notes }),
       });
       const j = await r.json();
@@ -73,7 +82,7 @@ export default function TrainDatasets({ datasets, selectedDatasetId, onSelectDat
     if (!selectedDataset) { onMessage("Select a dataset to validate."); return; }
     setBusy("validate");
     try {
-      const r = await fetch(`${API_BASE}/training/datasets/${selectedDataset.id}/validate`, { method: "POST" });
+      const r = await fetch(`${API_BASE}/training/datasets/${selectedDataset.id}/validate`, { method: "POST", credentials: "include" });
       const j = await r.json();
       onMessage(j?.message ?? (r.ok ? "Validation finished." : "Validation failed."));
       await onRefresh();

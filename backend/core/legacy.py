@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -10,8 +9,6 @@ from django.conf import settings
 
 SETTINGS_PATH = settings.REPO_ROOT / "settings.json"
 SETTINGS_EXAMPLE_PATH = settings.REPO_ROOT / "settings.example.json"
-LEGACY_DB_PATH = settings.REPO_ROOT / "theft_detection.db"
-USE_LEGACY_READS = settings.__dict__.get("USE_LEGACY_READS", False)
 
 
 def load_json(path: Path, fallback: Any) -> Any:
@@ -38,21 +35,3 @@ def load_runtime_settings() -> dict[str, Any]:
 
 def save_runtime_settings(payload: dict[str, Any]) -> None:
     save_json(SETTINGS_PATH, payload)
-
-
-def legacy_db_rows(query: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
-    if not LEGACY_DB_PATH.exists():
-        return []
-    conn = sqlite3.connect(str(LEGACY_DB_PATH))
-    conn.row_factory = sqlite3.Row
-    try:
-        rows = conn.execute(query, params).fetchall()
-        return [dict(r) for r in rows]
-    except sqlite3.Error:
-        return []
-    finally:
-        conn.close()
-
-
-def use_legacy_reads() -> bool:
-    return bool(USE_LEGACY_READS)

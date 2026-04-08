@@ -22,14 +22,6 @@ export default function TrainPage() {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && !isAdmin) router.replace("/");
-  }, [authLoading, isAdmin, router]);
-
-  if (authLoading || !isAdmin) {
-    return <div className="text-sm text-muted">Checking access...</div>;
-  }
-
   const hasActiveJob = useMemo(() => jobs.some((job) => ["queued", "running", "stopping"].includes(job.status)), [jobs]);
   const latestFinishedJobId = useMemo(() => getLatestFinishedJobId(jobs), [jobs]);
   const artifactsForLatestSession = useMemo(() => !latestFinishedJobId ? [] : artifacts.filter((a) => a.jobId === latestFinishedJobId), [artifacts, latestFinishedJobId]);
@@ -43,9 +35,23 @@ export default function TrainPage() {
     setSelectedJobId((prev) => prev && nextJobs.some((job) => job.id === prev) ? prev : (nextJobs[0]?.id ?? null));
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
-  useEffect(() => { const interval = window.setInterval(() => { refresh(); }, hasActiveJob ? 3000 : 5000); return () => window.clearInterval(interval); }, [hasActiveJob, refresh]);
   useEffect(() => {
+    if (!authLoading && !isAdmin) router.replace("/");
+  }, [authLoading, isAdmin, router]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    refresh();
+  }, [isAdmin, refresh]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const interval = window.setInterval(() => { refresh(); }, hasActiveJob ? 3000 : 5000);
+    return () => window.clearInterval(interval);
+  }, [isAdmin, hasActiveJob, refresh]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
     if (!selectedJobId) { setLogs([]); return; }
     let cancelled = false;
     async function loadLogs() {
@@ -55,7 +61,11 @@ export default function TrainPage() {
     loadLogs();
     const interval = window.setInterval(loadLogs, hasActiveJob ? 3000 : 6000);
     return () => { cancelled = true; window.clearInterval(interval); };
-  }, [selectedJobId, hasActiveJob]);
+  }, [isAdmin, selectedJobId, hasActiveJob]);
+
+  if (authLoading || !isAdmin) {
+    return <div className="text-sm text-muted">Checking access...</div>;
+  }
 
   return (
     <div className="space-y-8">

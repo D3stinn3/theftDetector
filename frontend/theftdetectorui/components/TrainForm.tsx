@@ -51,7 +51,12 @@ export default function TrainForm({ datasets, selectedDatasetId, onRefresh, onMe
     if (!selectedDataset || !selectedDatasetReady || !selectedDeviceAvailable) return;
     setBusy(true);
     try {
-      const r = await fetch(`${API_BASE}/training/jobs`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ datasetId: selectedDataset.id, baseModel, taskType, epochs, imgsz, batch, device, validationSplit, patience }) });
+      const r = await fetch(`${API_BASE}/training/jobs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ datasetId: selectedDataset.id, baseModel, taskType, epochs, imgsz, batch, device, validationSplit, patience }),
+      });
       const j = await r.json();
       onMessage(j?.message ?? (r.ok ? "Training job created." : "Failed to start training."));
       if (r.ok) await onRefresh();

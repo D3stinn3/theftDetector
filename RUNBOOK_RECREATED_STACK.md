@@ -7,8 +7,9 @@ From `backend/`:
 1. `python -m venv .venv`
 2. Activate virtualenv
 3. `pip install -r requirements.txt -c ../constraints.txt`
-4. `python manage.py migrate`
-5. `python manage.py runserver 127.0.0.1:8001`
+4. (CUDA hosts only) `pip install -r requirements-cuda.txt`
+5. `python manage.py migrate`
+6. `python manage.py runserver 127.0.0.1:8001`
 
 Notes:
 - Runs independently from legacy `backend.py`.

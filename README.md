@@ -121,7 +121,7 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Install Python dependencies
+### 3. Install Python dependencies (default: CPU-safe)
 
 ```bash
 pip install -r requirements.txt -c constraints.txt
@@ -130,6 +130,16 @@ pip install -r requirements.txt -c constraints.txt
 > If your project does not yet include a `requirements.txt`, install your packages as usual and still pass
 > `-c constraints.txt` so environment resolution keeps `setuptools` below `81` (avoids known
 > `face_recognition_models`/`pkg_resources` deprecation noise).
+
+### 3b. Optional: CUDA-enabled PyTorch (GPU servers)
+
+For NVIDIA/CUDA hosts, install the CUDA wheel set after base dependencies:
+
+```bash
+pip install -r requirements-cuda.txt
+```
+
+This keeps first-time developer setup stable on any machine, while production GPU hosts can opt into CUDA builds explicitly.
 
 ### 4. Configure camera sources
 

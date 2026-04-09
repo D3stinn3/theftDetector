@@ -217,7 +217,7 @@ cython_debug/
 *.asf
 
 # Runtime generated directories
-alerts/
+/alerts/
 playbacks/
 uploads/
 

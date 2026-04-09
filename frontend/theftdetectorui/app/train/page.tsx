@@ -57,9 +57,10 @@ export default function TrainPage() {
   useEffect(() => {
     if (!isAdmin) return;
     if (!selectedJobId) return;
+    const activeJobId = selectedJobId;
     let cancelled = false;
     async function loadLogs() {
-      const nextLogs = await fetchTrainingLogs(selectedJobId);
+      const nextLogs = await fetchTrainingLogs(activeJobId);
       if (!cancelled) setLogs(nextLogs);
     }
     loadLogs();

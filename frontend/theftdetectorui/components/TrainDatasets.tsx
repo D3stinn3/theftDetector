@@ -50,12 +50,12 @@ export default function TrainDatasets({ datasets, selectedDatasetId, onSelectDat
         onMessage(j?.message ?? j?.detail ?? `Upload failed (HTTP ${r.status}).`);
         return;
       }
-      onMessage(`Dataset uploaded: ${j.name}`);
+      onMessage(`Dataset uploaded: ${j?.name ?? (datasetName || datasetFile.name)}`);
       setDatasetFile(null);
       setDatasetName("");
       setNotes("");
       await onRefresh();
-      if (j.id) onSelectDataset(j.id);
+      if (j?.id) onSelectDataset(j.id);
     } catch {
       onMessage("Network error while uploading dataset.");
     } finally {

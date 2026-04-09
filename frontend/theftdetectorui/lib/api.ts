@@ -8,6 +8,15 @@ import type {
   TrainingJob,
   TrainingLog,
 } from "@/lib/types";
+export type {
+  FaceRow,
+  HistoryRow,
+  TrainingArtifact,
+  TrainingDataset,
+  TrainingDeviceCapabilities,
+  TrainingJob,
+  TrainingLog,
+} from "@/lib/types";
 
 async function apiFetch<T>(path: string, fallback: T): Promise<T> {
   try {

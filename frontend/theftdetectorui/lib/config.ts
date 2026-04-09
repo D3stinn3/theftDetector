@@ -1,10 +1,20 @@
-const rawBase =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8000";
+const envBase = process.env.NEXT_PUBLIC_API_URL?.trim() || "http://localhost:8000";
+const normalizedBase = envBase.replace(/\/$/, "");
 
-export const API_BASE = rawBase;
+function sanitizedApiBase(input: string): string {
+  try {
+    const u = new URL(input);
+    // Force origin-only base so ws URL never becomes /api/ws by mistake.
+    return u.origin;
+  } catch {
+    return "http://localhost:8000";
+  }
+}
+
+export const API_BASE = sanitizedApiBase(normalizedBase);
 
 export function getWsUrl(): string {
-  const wsBase = rawBase.replace(/^http/, "ws");
+  const wsBase = API_BASE.replace(/^http/, "ws");
   return `${wsBase}/ws`;
 }
 

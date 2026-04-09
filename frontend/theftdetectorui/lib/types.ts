@@ -27,6 +27,11 @@ export interface WsMultiFrame {
   type: "multi_frame";
   cameras: WsCameraFrame[];
   alert?: AlertPayload;
+  streamStats?: {
+    frameCount: number;
+    cameraCount: number;
+    cameraErrors: { id?: string; name?: string; lastError?: string }[];
+  };
 }
 
 export interface Settings {

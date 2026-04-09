@@ -166,6 +166,25 @@ class CameraRuntime:
                 )
         return out
 
+    def get_runtime_diagnostics(self) -> dict[str, object]:
+        self.ensure_loaded()
+        with self._lock:
+            cameras = []
+            for cam in self._cameras.values():
+                cap = cam.get("cap")
+                cameras.append(
+                    {
+                        "id": cam.get("id"),
+                        "name": cam.get("name"),
+                        "source": cam.get("source"),
+                        "isOpened": bool(cap and cap.isOpened()),
+                        "status": cam.get("status"),
+                        "lastError": cam.get("lastError"),
+                        "lastFrameTs": cam.get("lastFrameTs"),
+                    }
+                )
+            return {"count": len(cameras), "cameras": cameras}
+
 
 camera_runtime = CameraRuntime()
 

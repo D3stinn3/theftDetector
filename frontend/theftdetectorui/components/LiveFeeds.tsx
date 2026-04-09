@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getWsUrl } from "@/lib/config";
 import type { AlertPayload, WsMultiFrame } from "@/lib/types";
 import { AlertTriangle, Radio, SignalHigh, VideoOff } from "lucide-react";
@@ -10,34 +10,75 @@ export default function LiveFeeds() {
   const [alert, setAlert] = useState<AlertPayload | null>(null);
   const [connected, setConnected] = useState(false);
   const [hasReceivedFrame, setHasReceivedFrame] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("Waiting for video stream...");
   const lastAlertId = useRef<string | null>(null);
-
-  const connect = useCallback(() => {
-    const ws = new WebSocket(getWsUrl());
-    ws.onopen = () => setConnected(true);
-    ws.onclose = () => setConnected(false);
-    ws.onerror = () => setConnected(false);
-    ws.onmessage = (ev) => {
-      try {
-        const data = JSON.parse(ev.data as string) as WsMultiFrame;
-        if (data.type === "multi_frame" && Array.isArray(data.cameras)) {
-          setHasReceivedFrame(true);
-          setFeeds(data.cameras);
-          if (data.alert?.id && data.alert.id !== lastAlertId.current) {
-            lastAlertId.current = data.alert.id;
-            setAlert(data.alert);
-            window.setTimeout(() => setAlert(null), 8000);
-          }
-        }
-      } catch {}
-    };
-    return ws;
-  }, []);
+  const reconnectTimerRef = useRef<number | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const closedByUnmountRef = useRef(false);
 
   useEffect(() => {
-    const ws = connect();
-    return () => ws.close();
-  }, [connect]);
+    closedByUnmountRef.current = false;
+    let ws: WebSocket | null = null;
+
+    const scheduleReconnect = () => {
+      if (closedByUnmountRef.current) return;
+      const attempt = reconnectAttemptRef.current + 1;
+      reconnectAttemptRef.current = attempt;
+      const delayMs = Math.min(1000 * 2 ** Math.min(attempt - 1, 4), 15000);
+      setStatusMessage(`Stream disconnected. Reconnecting in ${Math.ceil(delayMs / 1000)}s...`);
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+      }
+      reconnectTimerRef.current = window.setTimeout(() => {
+        connectSocket();
+      }, delayMs);
+    };
+
+    const connectSocket = () => {
+      ws = new WebSocket(getWsUrl());
+      ws.onopen = () => {
+        reconnectAttemptRef.current = 0;
+        setConnected(true);
+        setStatusMessage("Stream connected.");
+      };
+      ws.onclose = () => {
+        setConnected(false);
+        if (!closedByUnmountRef.current) scheduleReconnect();
+      };
+      ws.onerror = () => {
+        setConnected(false);
+        setStatusMessage("WebSocket error. Attempting reconnect...");
+      };
+      ws.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data as string) as WsMultiFrame;
+          if (data.type === "multi_frame" && Array.isArray(data.cameras)) {
+            setFeeds(data.cameras);
+            if (data.cameras.length > 0) {
+              setHasReceivedFrame(true);
+              setStatusMessage("Stream connected.");
+            } else {
+              setStatusMessage("Socket connected, but no camera frames yet.");
+            }
+            if (data.alert?.id && data.alert.id !== lastAlertId.current) {
+              lastAlertId.current = data.alert.id;
+              setAlert(data.alert);
+              window.setTimeout(() => setAlert(null), 8000);
+            }
+          }
+        } catch {}
+      };
+    };
+
+    connectSocket();
+    return () => {
+      closedByUnmountRef.current = true;
+      if (reconnectTimerRef.current) {
+        window.clearTimeout(reconnectTimerRef.current);
+      }
+      ws?.close();
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -59,7 +100,7 @@ export default function LiveFeeds() {
             {connected && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[rgb(0,255,190)] opacity-50" />}
             <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${connected ? "bg-[rgb(0,255,190)] shadow-[0_0_8px_rgba(0,255,190,0.7)]" : "bg-muted/40"}`} />
           </span>
-          <span className="text-xs font-medium text-foreground">{connected ? "Stream connected" : "Reconnecting..."}</span>
+          <span className="text-xs font-medium text-foreground">{statusMessage}</span>
         </div>
         <div className="flex w-full items-center gap-1.5 text-xs text-muted sm:w-auto">
           {connected ? <SignalHigh className="h-3.5 w-3.5 text-[rgb(0,255,190)]" /> : <Radio className="h-3.5 w-3.5" />}
@@ -69,7 +110,7 @@ export default function LiveFeeds() {
       {feeds.length === 0 ? (
         <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-white/[0.08] bg-white/[0.02] text-muted">
           <VideoOff className="h-8 w-8 opacity-30" />
-          {hasReceivedFrame && connected ? <p className="text-sm">No cameras detected</p> : <p className="text-sm">Waiting for video stream...</p>}
+          {hasReceivedFrame && connected ? <p className="text-sm">No cameras detected</p> : <p className="text-sm">{statusMessage}</p>}
         </div>
       ) : (
         <div className={`grid gap-4 ${feeds.length === 1 ? "grid-cols-1" : feeds.length === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2 xl:grid-cols-3"}`}>

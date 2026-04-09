@@ -121,7 +121,7 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-### 3. Install Python dependencies
+### 3. Install Python dependencies (default: CPU-safe)
 
 ```bash
 pip install -r requirements.txt -c constraints.txt
@@ -130,6 +130,16 @@ pip install -r requirements.txt -c constraints.txt
 > If your project does not yet include a `requirements.txt`, install your packages as usual and still pass
 > `-c constraints.txt` so environment resolution keeps `setuptools` below `81` (avoids known
 > `face_recognition_models`/`pkg_resources` deprecation noise).
+
+### 3b. Optional: CUDA-enabled PyTorch (GPU servers)
+
+For NVIDIA/CUDA hosts, install the CUDA wheel set after base dependencies:
+
+```bash
+pip install -r requirements-cuda.txt
+```
+
+This keeps first-time developer setup stable on any machine, while production GPU hosts can opt into CUDA builds explicitly.
 
 ### 4. Configure camera sources
 
@@ -188,7 +198,7 @@ Place a `shoplifting.pt` weights file in the project root. The backend will use 
 
 ## Running
 
-### Backend
+### Legacy Backend (FastAPI)
 
 ```bash
 python backend.py
@@ -218,6 +228,34 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+### Recreated Backend (Django + ASGI WebSocket)
+
+Use ASGI for live stream support (`/ws`). Do not use `manage.py runserver` when validating live camera WebSocket behavior.
+
+```bash
+# from repository root
+.venv\Scripts\python -m uvicorn backend.theftdetectorbackend.asgi:application --host 127.0.0.1 --port 8000 --reload
+
+# or from backend/ directory
+..\venv\Scripts\python -m uvicorn theftdetectorbackend.asgi:application --host 127.0.0.1 --port 8000 --reload
+```
+
+If you only need migration/admin checks, `python manage.py runserver` still works for HTTP APIs, but WebSocket troubleshooting should use Uvicorn.
+
+### Recreated Frontend (`frontend/theftdetectorui`)
+
+```bash
+cd frontend/theftdetectorui
+npm install
+npm run dev
+```
+
+Set API host in `frontend/theftdetectorui/.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+```
 
 ---
 

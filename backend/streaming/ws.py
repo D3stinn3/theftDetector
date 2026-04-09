@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import datetime
 
 from cameras.runtime import camera_runtime
+
+logger = logging.getLogger(__name__)
 
 
 async def websocket_heartbeat_app(scope, receive, send):
@@ -17,6 +20,7 @@ async def websocket_heartbeat_app(scope, receive, send):
 
     await send({"type": "websocket.accept"})
     camera_runtime.ensure_loaded()
+    heartbeat_count = 0
     try:
         while True:
             try:
@@ -26,9 +30,28 @@ async def websocket_heartbeat_app(scope, receive, send):
             except asyncio.TimeoutError:
                 pass
             frames = camera_runtime.get_ws_frames()
+            diagnostics = camera_runtime.get_runtime_diagnostics()
+            errors = [
+                {"id": c.get("id"), "name": c.get("name"), "lastError": c.get("lastError")}
+                for c in diagnostics.get("cameras", [])
+                if c.get("lastError")
+            ]
+            heartbeat_count += 1
+            if heartbeat_count == 1 or heartbeat_count % 10 == 0:
+                logger.info(
+                    "ws heartbeat: frames=%s cameras=%s errors=%s",
+                    len(frames),
+                    diagnostics.get("count", 0),
+                    len(errors),
+                )
             payload = {
                 "type": "multi_frame",
                 "cameras": frames,
+                "streamStats": {
+                    "frameCount": len(frames),
+                    "cameraCount": diagnostics.get("count", 0),
+                    "cameraErrors": errors,
+                },
                 "alert": {
                     "id": f"heartbeat-{int(datetime.utcnow().timestamp())}",
                     "message": "Django recreation backend connected.",
